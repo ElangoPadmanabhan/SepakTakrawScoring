@@ -1,0 +1,197 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+*, *::before, *::after {
+  margin: 0; padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+  --bg-base:      #f2f4f7;
+  --bg-surface:   #ffffff;
+  --bg-card:      #ffffff;
+  --bg-elevated:  #f7f8fa;
+  --accent:       #ff5500;
+  --accent-dim:   rgba(255,85,0,0.08);
+  --accent-mid:   rgba(255,85,0,0.15);
+  --gold:         #e69500;
+  --gold-dim:     rgba(230,149,0,0.1);
+  --success:      #16a34a;
+  --success-dim:  rgba(22,163,74,0.1);
+  --danger:       #dc2626;
+  --text-1:       #111218;
+  --text-2:       #6b7280;
+  --text-3:       #b0b8c4;
+  --border:       #e5e7eb;
+  --border-light: #f0f1f3;
+  --shadow-sm:    0 1px 4px rgba(0,0,0,0.07);
+  --shadow-card:  0 2px 12px rgba(0,0,0,0.08);
+  --shadow-lg:    0 4px 24px rgba(0,0,0,0.1);
+  --radius-sm:    8px;
+  --radius-md:    14px;
+  --radius-lg:    20px;
+  --nav-height:   68px;
+}
+
+html { height: 100%; background: var(--bg-base); }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-1);
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+/* ─── Page ─── */
+.page {
+  flex: 1;
+  padding: 16px 16px calc(var(--nav-height) + 20px);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 1.45rem;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: var(--text-1);
+  line-height: 1.2;
+}
+
+.page-subtitle {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+/* ─── Cards ─── */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+}
+
+.card-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 12px;
+}
+
+/* ─── Buttons ─── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  user-select: none;
+  transition: opacity 100ms ease, transform 80ms ease, box-shadow 150ms ease;
+}
+.btn:active { transform: scale(0.94); opacity: 0.85; }
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  font-size: 1rem;
+  padding: 0 20px;
+  box-shadow: 0 4px 14px rgba(255,85,0,0.3);
+}
+.btn-primary:active { box-shadow: 0 2px 6px rgba(255,85,0,0.15); }
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-1);
+  font-size: 0.9rem;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+}
+
+/* ─── Badges ─── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.badge-live     { background: rgba(255,85,0,0.1); color: var(--accent); border: 1px solid rgba(255,85,0,0.25); }
+.badge-done     { background: var(--success-dim); color: var(--success); }
+.badge-upcoming { background: var(--bg-elevated); color: var(--text-2); border: 1px solid var(--border); }
+
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  animation: blink 1.3s ease-in-out infinite;
+}
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+
+/* ─── Stat grid ─── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stat-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 8px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+.stat-chip-value {
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.stat-chip-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-3);
+}
+
+/* ─── Divider ─── */
+.divider { height: 1px; background: var(--border); margin: 12px 0; }

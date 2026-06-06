@@ -1,0 +1,668 @@
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { doc, onSnapshot, updateDoc, collection } from 'firebase/firestore'
+import { db } from '../firebase'
+import { useAuth } from '../context/AuthContext'
+import ViewerCount from '../components/ViewerCount'
+
+// ── Game rules ────────────────────────────────────────────
+const MAX_SETS    = 3
+const WIN_PTS     = 15
+const DEUCE_AT    = 14
+const DEUCE_WIN   = 17
+const SETS_TO_WIN = 2
+const TIMEOUT_SEC = 60
+// Per set per team: max 2 total changes (subs + reentries), max 1 reentry
+const MAX_CHANGES = 2
+const MAX_REENTRY = 1
+
+function checkSetWinner(h, a) {
+  if (h >= WIN_PTS && a < DEUCE_AT) return 'home'
+  if (a >= WIN_PTS && h < DEUCE_AT) return 'away'
+  if (h >= DEUCE_WIN) return 'home'
+  if (a >= DEUCE_WIN) return 'away'
+  return null
+}
+function isDeuce(h, a) { return h >= DEUCE_AT && a >= DEUCE_AT }
+
+function emptySet() {
+  return {
+    home: 0, away: 0, winner: null,
+    homeTimeout: false,  awayTimeout: false,
+    homeSubs: 0,         awaySubs: 0,       // 0–2
+    homeReentries: 0,    awayReentries: 0,  // 0–1
+  }
+}
+
+// ── Style constants ───────────────────────────────────────
+const ROLE_COLORS = {
+  Captain:       { bg: 'rgba(255,179,0,0.12)', color: '#b45309', border: 'rgba(255,179,0,0.3)' },
+  'Vice Captain':{ bg: 'rgba(99,102,241,0.1)', color: '#4338ca', border: 'rgba(99,102,241,0.25)' },
+  Player:        { bg: 'var(--bg-elevated)',    color: 'var(--text-3)', border: 'var(--border)' },
+}
+const POS_COLORS = {
+  Feeder: { bg: 'rgba(34,197,94,0.1)',  color: '#15803d', border: 'rgba(34,197,94,0.3)'  },
+  Tekong: { bg: 'rgba(14,165,233,0.1)', color: '#0369a1', border: 'rgba(14,165,233,0.3)' },
+  Killer: { bg: 'rgba(239,68,68,0.1)',  color: '#b91c1c', border: 'rgba(239,68,68,0.3)'  },
+}
+const EVENT_ICON = { Regu: '👟', Quad: '🏐' }
+
+// ── Main component ────────────────────────────────────────
+export default function Scoring() {
+  const { leagueId, fixtureId } = useParams()
+  const navigate  = useNavigate()
+  const { isAdmin } = useAuth()
+
+  const [fixture, setFixture]         = useState(null)
+  const [homePlayers, setHomePlayers] = useState([])
+  const [awayPlayers, setAwayPlayers] = useState([])
+  const [loading, setLoading]         = useState(!!fixtureId)
+  const [showPlayers, setShowPlayers] = useState(false)
+  const [busy, setBusy]               = useState(false)
+  const [timeoutState, setTimeoutState] = useState(null) // {side, remaining}
+
+  // ── Timeout countdown ─────────────────────────────────
+  useEffect(() => {
+    if (!timeoutState) return
+    if (timeoutState.remaining <= 0) { setTimeoutState(null); return }
+    const id = setTimeout(() =>
+      setTimeoutState(prev => prev ? { ...prev, remaining: prev.remaining - 1 } : null)
+    , 1000)
+    return () => clearTimeout(id)
+  }, [timeoutState])
+
+  // ── Fixture listener ──────────────────────────────────
+  useEffect(() => {
+    if (!leagueId || !fixtureId) { setLoading(false); return }
+    return onSnapshot(doc(db, 'leagues', leagueId, 'fixtures', fixtureId), snap => {
+      if (snap.exists()) {
+        const data = { id: snap.id, ...snap.data() }
+        if (!data.sets || data.sets.length === 0) data.sets = [emptySet()]
+        if (data.currentSet === undefined) data.currentSet = 0
+        setFixture(data)
+      }
+      setLoading(false)
+    })
+  }, [leagueId, fixtureId])
+
+  // ── Players listeners ─────────────────────────────────
+  useEffect(() => {
+    if (!leagueId || !fixture?.homeTeam?.id) return
+    return onSnapshot(
+      collection(db, 'leagues', leagueId, 'teams', fixture.homeTeam.id, 'players'),
+      snap => setHomePlayers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    )
+  }, [leagueId, fixture?.homeTeam?.id])
+
+  useEffect(() => {
+    if (!leagueId || !fixture?.awayTeam?.id) return
+    return onSnapshot(
+      collection(db, 'leagues', leagueId, 'teams', fixture.awayTeam.id, 'players'),
+      snap => setAwayPlayers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    )
+  }, [leagueId, fixture?.awayTeam?.id])
+
+  // ── Firestore save ────────────────────────────────────
+  const save = async (updates) => {
+    setBusy(true)
+    try { await updateDoc(doc(db, 'leagues', leagueId, 'fixtures', fixtureId), updates) }
+    finally { setBusy(false) }
+  }
+
+  // ── Score actions ─────────────────────────────────────
+  const addPoint = async (side) => {
+    const sets = fixture.sets.map((s, i) => {
+      if (i !== fixture.currentSet) return s
+      const updated = { ...s, [side]: (s[side] || 0) + 1 }
+      updated.winner = checkSetWinner(updated.home, updated.away)
+      return updated
+    })
+    const sH = sets.filter(s => s.winner === 'home').length
+    const sA = sets.filter(s => s.winner === 'away').length
+    const updates = { sets, status: 'live' }
+    if (sH >= SETS_TO_WIN || sA >= SETS_TO_WIN) {
+      updates.status    = 'completed'
+      updates.homeScore = sH
+      updates.awayScore = sA
+    }
+    await save(updates)
+  }
+
+  const subPoint = async (side) => {
+    const sets = fixture.sets.map((s, i) => {
+      if (i !== fixture.currentSet) return s
+      const updated = { ...s, [side]: Math.max(0, (s[side] || 0) - 1) }
+      updated.winner = checkSetWinner(updated.home, updated.away)
+      return updated
+    })
+    await save({ sets })
+  }
+
+  const nextSet = async () => {
+    if (fixture.currentSet >= MAX_SETS - 1) return
+    const sets = [...fixture.sets, emptySet()]
+    await save({ sets, currentSet: fixture.currentSet + 1 })
+  }
+
+const startMatch = async () => {
+    await save({ status: 'live', sets: [emptySet()], currentSet: 0, homeScore: null, awayScore: null })
+  }
+
+  // ── Timeout ───────────────────────────────────────────
+  const callTimeout = async (side) => {
+    const sets = fixture.sets.map((s, i) =>
+      i === fixture.currentSet ? { ...s, [`${side}Timeout`]: true } : s
+    )
+    await save({ sets })
+    setTimeoutState({ side, remaining: TIMEOUT_SEC })
+  }
+
+  // ── Sub / Re-entry ────────────────────────────────────
+  const useSub = async (side) => {
+    const sets = fixture.sets.map((s, i) => {
+      if (i !== fixture.currentSet) return s
+      return { ...s, [`${side}Subs`]: (s[`${side}Subs`] || 0) + 1 }
+    })
+    await save({ sets })
+  }
+
+  const useReentry = async (side) => {
+    const sets = fixture.sets.map((s, i) => {
+      if (i !== fixture.currentSet) return s
+      return { ...s, [`${side}Reentries`]: (s[`${side}Reentries`] || 0) + 1 }
+    })
+    await save({ sets })
+  }
+
+  // ── Guards ────────────────────────────────────────────
+  if (!fixtureId) return <GenericScoring />
+  if (loading) return (
+    <div className="page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60dvh' }}>
+      <p style={{ color: 'var(--text-2)' }}>Loading match…</p>
+    </div>
+  )
+  if (!fixture) return (
+    <div className="page" style={{ textAlign: 'center', paddingTop: 60 }}>
+      <p style={{ fontWeight: 700 }}>Match not found.</p>
+      <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ marginTop: 16 }}>Go back</button>
+    </div>
+  )
+
+  // ── Derived state ─────────────────────────────────────
+  const sets       = fixture.sets || [emptySet()]
+  const cur        = fixture.currentSet || 0
+  const curSet     = sets[cur] || emptySet()
+  const setsHome   = sets.filter(s => s.winner === 'home').length
+  const setsAway   = sets.filter(s => s.winner === 'away').length
+  const isLive      = fixture.status === 'live'
+  const isCompleted = fixture.status === 'completed'
+  const setWon      = !!curSet.winner && isLive
+  const deuce       = isDeuce(curSet.home, curSet.away) && !curSet.winner
+  const canNextSet  = setWon && cur < MAX_SETS - 1 && !isCompleted
+  const matchWinner = isCompleted
+    ? (fixture.homeScore >= SETS_TO_WIN ? fixture.homeTeam?.name : fixture.awayTeam?.name)
+    : null
+
+  return (
+    <div className="page" style={{ paddingBottom: 100 }}>
+
+      {/* Timeout overlay */}
+      {timeoutState && (
+        <TimeoutOverlay
+          remaining={timeoutState.remaining}
+          teamName={timeoutState.side === 'home' ? fixture.homeTeam?.name : fixture.awayTeam?.name}
+          onDismiss={() => setTimeoutState(null)}
+        />
+      )}
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: '4px 0', flexShrink: 0 }}>
+          <BackIcon />
+        </button>
+        <div style={{ flex: 1 }}>
+          <p className="page-subtitle">
+            {fixture.event ? `${EVENT_ICON[fixture.event] || ''} ${fixture.event} · Leg ${fixture.leg}` : 'Match'}
+          </p>
+          <h1 className="page-title" style={{ fontSize: '1.15rem' }}>Live Score</h1>
+        </div>
+        <ViewerCount />
+        {isLive && !setWon && <span className="badge badge-live"><span className="live-dot" />Live</span>}
+        {isCompleted && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: '0.65rem', fontWeight: 700, background: 'rgba(107,114,128,0.1)', color: '#6b7280', border: '1px solid rgba(107,114,128,0.2)' }}>Full Time</span>}
+      </div>
+
+      {/* User notice */}
+      {!isAdmin && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,85,0,0.06)', border: '1px solid rgba(255,85,0,0.15)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
+          <EyeIcon />
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-2)', fontWeight: 500 }}>You are viewing live scores. Only admins can update the score.</p>
+        </div>
+      )}
+
+      {/* Match winner */}
+      {isCompleted && matchWinner && (
+        <div style={{ background: 'linear-gradient(135deg,rgba(255,85,0,0.1),rgba(255,179,0,0.1))', border: '1px solid rgba(255,85,0,0.25)', borderRadius: 14, padding: '16px 20px', marginBottom: 14, textAlign: 'center' }}>
+          <p style={{ fontSize: '1.5rem', marginBottom: 4 }}>🏆</p>
+          <p style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--accent)' }}>{matchWinner}</p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-2)', marginTop: 2 }}>Wins the match {setsHome}–{setsAway}</p>
+        </div>
+      )}
+
+      {/* Start match */}
+      {isAdmin && fixture.status === 'scheduled' && (
+        <button className="btn btn-primary" onClick={startMatch} disabled={busy}
+          style={{ width: '100%', height: 46, fontSize: '0.95rem', marginBottom: 12 }}>
+          ▶ Start Match
+        </button>
+      )}
+
+      {/* Sets overview */}
+      <div className="card" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', marginBottom: 12, gap: 8 }}>
+        <TeamHeader team={fixture.homeTeam} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <span style={{ fontWeight: 900, fontSize: '1.5rem', color: setsHome >= setsAway ? 'var(--accent)' : 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>{setsHome}</span>
+            <span style={{ color: 'var(--text-3)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 1 }}>SETS</span>
+            <span style={{ fontWeight: 900, fontSize: '1.5rem', color: setsAway >= setsHome ? 'var(--accent)' : 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>{setsAway}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 5 }}>
+            {Array.from({ length: MAX_SETS }).map((_, i) => {
+              const w = sets[i]?.winner
+              return <div key={i} style={{ width: 24, height: 7, borderRadius: 4, background: w === 'home' ? 'var(--accent)' : w === 'away' ? '#64748b' : i === cur && isLive ? 'rgba(255,85,0,0.25)' : 'var(--border)', transition: 'background 300ms ease' }} />
+            })}
+          </div>
+        </div>
+        <TeamHeader team={fixture.awayTeam} right />
+      </div>
+
+      {/* Set won banner */}
+      {setWon && (
+        <div style={{ background: 'linear-gradient(135deg,rgba(255,85,0,0.08),rgba(255,179,0,0.08))', border: '1.5px solid rgba(255,85,0,0.3)', borderRadius: 14, padding: '16px 20px', marginBottom: 12, textAlign: 'center' }}>
+          <p style={{ fontWeight: 900, fontSize: '1rem', color: 'var(--accent)', marginBottom: 4 }}>
+            🎉 Set {cur + 1} won by {curSet.winner === 'home' ? fixture.homeTeam?.name : fixture.awayTeam?.name}!
+          </p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-2)', marginBottom: isAdmin ? 12 : 0 }}>{curSet.home} – {curSet.away}</p>
+          {isAdmin && canNextSet && (
+            <button className="btn btn-primary" onClick={nextSet} disabled={busy} style={{ height: 40, padding: '0 24px', fontSize: '0.88rem' }}>Start Set {cur + 2} →</button>
+          )}
+        </div>
+      )}
+
+      {/* Deuce */}
+      {deuce && !setWon && (
+        <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '8px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>🔥</span>
+          <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#dc2626' }}>Deuce! First to {DEUCE_WIN} wins this set.</p>
+        </div>
+      )}
+
+      {/* Scoreboard */}
+      {!setWon && (
+        <div className="card" style={{ padding: '20px 16px 18px', marginBottom: 12, border: isLive ? '1px solid rgba(255,85,0,0.15)' : '1px solid var(--border)', overflow: 'hidden', position: 'relative' }}>
+          {isLive && <div style={{ height: 3, background: 'linear-gradient(90deg,#ff5500,#ffb300)', position: 'absolute', top: 0, left: 0, right: 0 }} />}
+          <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 18 }}>
+            Set {cur + 1} · First to {deuce ? DEUCE_WIN : WIN_PTS}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: 8 }}>
+            {isAdmin && !isCompleted ? (
+              <>
+                <AdminControl label={fixture.homeTeam?.name} score={curSet.home} leading={curSet.home > curSet.away} onAdd={() => addPoint('home')} onSub={() => subPoint('home')} busy={busy} />
+                <span style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--border)' }}>:</span>
+                <AdminControl label={fixture.awayTeam?.name} score={curSet.away} leading={curSet.away > curSet.home} onAdd={() => addPoint('away')} onSub={() => subPoint('away')} busy={busy} />
+              </>
+            ) : (
+              <>
+                <ReadOnlyScore label={fixture.homeTeam?.name} score={curSet.home} leading={curSet.home > curSet.away} logo={fixture.homeTeam?.logoUrl} />
+                <span style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--border)' }}>:</span>
+                <ReadOnlyScore label={fixture.awayTeam?.name} score={curSet.away} leading={curSet.away > curSet.home} logo={fixture.awayTeam?.logoUrl} />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Team action panels (Timeout / Sub / Re-entry) ── */}
+      {isLive && !setWon && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+          <TeamActionPanel
+            teamName={fixture.homeTeam?.name}
+            logoUrl={fixture.homeTeam?.logoUrl}
+            side="home"
+            timeoutUsed={curSet.homeTimeout}
+            subs={curSet.homeSubs || 0}
+            reentries={curSet.homeReentries || 0}
+            isAdmin={isAdmin}
+            busy={busy}
+            onTimeout={() => callTimeout('home')}
+            onSub={() => useSub('home')}
+            onReentry={() => useReentry('home')}
+            timeoutActive={timeoutState?.side === 'home' ? timeoutState.remaining : null}
+          />
+          <TeamActionPanel
+            teamName={fixture.awayTeam?.name}
+            logoUrl={fixture.awayTeam?.logoUrl}
+            side="away"
+            timeoutUsed={curSet.awayTimeout}
+            subs={curSet.awaySubs || 0}
+            reentries={curSet.awayReentries || 0}
+            isAdmin={isAdmin}
+            busy={busy}
+            onTimeout={() => callTimeout('away')}
+            onSub={() => useSub('away')}
+            onReentry={() => useReentry('away')}
+            timeoutActive={timeoutState?.side === 'away' ? timeoutState.remaining : null}
+          />
+        </div>
+      )}
+
+      {/* Set history */}
+      {sets.length > 0 && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <p className="card-label">Set History</p>
+          {sets.map((s, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < sets.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-2)', fontWeight: 600, minWidth: 46 }}>Set {i + 1}</span>
+                {i === cur && isLive && !setWon && <span className="badge badge-live" style={{ fontSize: '0.58rem' }}>Now</span>}
+                {s.winner && (
+                  <span style={{ fontSize: '0.62rem', fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: 'rgba(255,85,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(255,85,0,0.15)' }}>
+                    {s.winner === 'home' ? fixture.homeTeam?.name : fixture.awayTeam?.name} won
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <span style={{ fontWeight: 800, fontSize: '1rem', color: s.home > s.away ? 'var(--text-1)' : 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>{s.home}</span>
+                <span style={{ color: 'var(--text-3)', fontWeight: 700 }}>–</span>
+                <span style={{ fontWeight: 800, fontSize: '1rem', color: s.away > s.home ? 'var(--text-1)' : 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>{s.away}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+
+      {/* Players panel */}
+      <button className="btn btn-secondary" onClick={() => setShowPlayers(v => !v)}
+        style={{ width: '100%', height: 42, fontSize: '0.85rem', gap: 8, marginBottom: 12 }}>
+        <PlayersIcon />
+        {showPlayers ? 'Hide Players' : 'View Players'}
+      </button>
+      {showPlayers && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+          <PlayersList team={fixture.homeTeam} players={homePlayers} />
+          <PlayersList team={fixture.awayTeam} players={awayPlayers} />
+        </div>
+      )}
+
+      {/* Rules reference */}
+      <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px', marginBottom: 16 }}>
+        <p style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Rules</p>
+        {[
+          `${MAX_SETS} sets · First to ${WIN_PTS} pts wins a set`,
+          `At ${DEUCE_AT}–${DEUCE_AT}, first to ${DEUCE_WIN} wins`,
+          '1 timeout per team per set (1 min)',
+          '2 subs OR 1 sub + 1 re-entry per team per set',
+        ].map((r, i) => (
+          <p key={i} style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginBottom: 4, display: 'flex', gap: 7 }}>
+            <span style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>·</span>{r}
+          </p>
+        ))}
+      </div>
+
+    </div>
+  )
+}
+
+// ── Team action panel ─────────────────────────────────────
+function TeamActionPanel({ teamName, logoUrl, side, timeoutUsed, subs, reentries, isAdmin, busy, onTimeout, onSub, onReentry, timeoutActive }) {
+  const totalChanges  = subs + reentries
+  const canSub        = totalChanges < MAX_CHANGES
+  const canReentry    = reentries < MAX_REENTRY && totalChanges < MAX_CHANGES
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+
+      {/* Team name header */}
+      <div style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 7 }}>
+        {logoUrl
+          ? <img src={logoUrl} alt={teamName} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+          : <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>👥</span>}
+        <p style={{ fontWeight: 800, fontSize: '0.73rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{teamName}</p>
+      </div>
+
+      <div style={{ padding: '10px 10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+        {/* ── Timeout ── */}
+        <div>
+          <p style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 5 }}>Timeout</p>
+          {isAdmin ? (
+            <button
+              onClick={!timeoutUsed ? onTimeout : undefined}
+              disabled={busy || timeoutUsed}
+              style={{
+                width: '100%', height: 40, borderRadius: 9, border: 'none', cursor: timeoutUsed ? 'default' : 'pointer',
+                fontFamily: 'inherit', fontWeight: 700, fontSize: '0.8rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                background: timeoutActive !== null ? '#f59e0b' : timeoutUsed ? 'var(--bg-elevated)' : 'rgba(245,158,11,0.12)',
+                color:      timeoutActive !== null ? '#fff'    : timeoutUsed ? 'var(--text-3)'    : '#b45309',
+                border:     timeoutUsed ? '1px solid var(--border)' : '1.5px solid rgba(245,158,11,0.4)',
+                transition: 'all 150ms ease',
+              }}>
+              <span style={{ fontSize: '1rem' }}>⏱</span>
+              {timeoutActive !== null
+                ? `${timeoutActive}s remaining`
+                : timeoutUsed ? 'Timeout Used' : 'Call Timeout'}
+            </button>
+          ) : (
+            <StatusPill used={timeoutUsed} label="Timeout" availLabel="Available" usedLabel="Used" icon="⏱" />
+          )}
+        </div>
+
+        {/* ── Substitution ── */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+            <p style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Substitution</p>
+            <p style={{ fontSize: '0.6rem', fontWeight: 700, color: subs > 0 ? 'var(--accent)' : 'var(--text-3)' }}>{subs}/{MAX_CHANGES} used</p>
+          </div>
+          {isAdmin ? (
+            <button
+              onClick={canSub ? onSub : undefined}
+              disabled={busy || !canSub}
+              style={{
+                width: '100%', height: 40, borderRadius: 9, border: 'none', cursor: canSub ? 'pointer' : 'default',
+                fontFamily: 'inherit', fontWeight: 700, fontSize: '0.8rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                background: !canSub ? 'var(--bg-elevated)' : 'rgba(14,165,233,0.1)',
+                color:      !canSub ? 'var(--text-3)'    : '#0369a1',
+                border:     !canSub ? '1px solid var(--border)' : '1.5px solid rgba(14,165,233,0.3)',
+                transition: 'all 150ms ease',
+              }}>
+              <span style={{ fontSize: '1rem' }}>🔄</span>
+              {!canSub ? 'No Subs Left' : `Use Sub (${MAX_CHANGES - totalChanges} left)`}
+            </button>
+          ) : (
+            <StatusPill used={!canSub} label="Sub" availLabel={`${MAX_CHANGES - totalChanges} left`} usedLabel="None left" icon="🔄" />
+          )}
+          {/* Dot indicators */}
+          <div style={{ display: 'flex', gap: 5, marginTop: 6, justifyContent: 'center' }}>
+            {Array.from({ length: MAX_CHANGES }).map((_, i) => (
+              <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: i < subs ? '#0ea5e9' : 'var(--border)', transition: 'background 200ms' }} />
+            ))}
+          </div>
+        </div>
+
+        {/* ── Re-entry ── */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+            <p style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Re-entry</p>
+            <p style={{ fontSize: '0.6rem', fontWeight: 700, color: reentries > 0 ? 'var(--accent)' : 'var(--text-3)' }}>{reentries}/{MAX_REENTRY} used</p>
+          </div>
+          {isAdmin ? (
+            <button
+              onClick={canReentry ? onReentry : undefined}
+              disabled={busy || !canReentry}
+              style={{
+                width: '100%', height: 40, borderRadius: 9, border: 'none', cursor: canReentry ? 'pointer' : 'default',
+                fontFamily: 'inherit', fontWeight: 700, fontSize: '0.8rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                background: !canReentry ? 'var(--bg-elevated)' : 'rgba(34,197,94,0.1)',
+                color:      !canReentry ? 'var(--text-3)'    : '#15803d',
+                border:     !canReentry ? '1px solid var(--border)' : '1.5px solid rgba(34,197,94,0.35)',
+                transition: 'all 150ms ease',
+              }}>
+              <span style={{ fontSize: '1rem' }}>↩️</span>
+              {!canReentry
+                ? (reentries >= MAX_REENTRY ? 'Re-entry Used' : 'Use Sub First / No Subs Left')
+                : 'Use Re-entry'}
+            </button>
+          ) : (
+            <StatusPill used={reentries >= MAX_REENTRY || !canReentry} label="Re-entry" availLabel="Available" usedLabel="Used" icon="↩️" />
+          )}
+          {/* Dot indicator */}
+          <div style={{ display: 'flex', gap: 5, marginTop: 6, justifyContent: 'center' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: reentries > 0 ? '#22c55e' : 'var(--border)', transition: 'background 200ms' }} />
+          </div>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+// ── Status pill (read-only) ───────────────────────────────
+function StatusPill({ used, icon, availLabel, usedLabel }) {
+  return (
+    <div style={{ height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: '0.75rem', fontWeight: 700,
+      background: used ? 'var(--bg-elevated)' : 'rgba(255,85,0,0.06)',
+      color:      used ? 'var(--text-3)'    : 'var(--text-2)',
+      border:     used ? '1px solid var(--border)' : '1px solid rgba(255,85,0,0.15)',
+    }}>
+      <span>{icon}</span>
+      <span>{used ? usedLabel : availLabel}</span>
+    </div>
+  )
+}
+
+// ── Timeout fullscreen overlay ────────────────────────────
+function TimeoutOverlay({ remaining, teamName, onDismiss }) {
+  const mins = String(Math.floor(remaining / 60)).padStart(2, '0')
+  const secs = String(remaining % 60).padStart(2, '0')
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, backdropFilter: 'blur(5px)' }}>
+      <p style={{ color: '#fff', fontWeight: 700, fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: 2 }}>⏱ Timeout</p>
+      <p style={{ color: '#fff', fontWeight: 800, fontSize: '1.1rem' }}>{teamName}</p>
+      <div style={{ background: 'rgba(255,255,255,0.07)', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 20, padding: '24px 52px' }}>
+        <p style={{ color: '#ffb300', fontWeight: 900, fontSize: '5rem', letterSpacing: '-5px', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+          {mins}:{secs}
+        </p>
+      </div>
+      <button onClick={onDismiss}
+        style={{ marginTop: 8, height: 42, padding: '0 28px', borderRadius: 10, border: '1.5px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.88rem' }}>
+        Dismiss
+      </button>
+    </div>
+  )
+}
+
+// ── Team header (sets overview) ───────────────────────────
+function TeamHeader({ team, right }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: right ? 'flex-end' : 'flex-start', gap: 4, overflow: 'hidden' }}>
+      {team?.logoUrl && <img src={team.logoUrl} alt={team.name} style={{ width: 32, height: 32, borderRadius: 7, objectFit: 'cover', border: '1px solid var(--border)' }} />}
+      <span style={{ fontWeight: 800, fontSize: '0.8rem', textAlign: right ? 'right' : 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{team?.name}</span>
+    </div>
+  )
+}
+
+// ── Admin score control ───────────────────────────────────
+function AdminControl({ label, score, leading, onAdd, onSub, busy }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, flex: 1 }}>
+      <p style={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-2)', textAlign: 'center', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{label}</p>
+      <button className="btn btn-primary" onClick={onAdd} disabled={busy}
+        style={{ width: 58, height: 58, borderRadius: '50%', fontSize: '1.8rem', padding: 0 }}>+</button>
+      <span style={{ fontSize: '4rem', fontWeight: 900, lineHeight: 1, color: leading ? 'var(--text-1)' : 'var(--text-3)', letterSpacing: '-3px', fontVariantNumeric: 'tabular-nums', transition: 'color 200ms ease' }}>
+        {score}
+      </span>
+      <button className="btn btn-secondary" onClick={onSub} disabled={busy || score === 0}
+        style={{ width: 44, height: 44, borderRadius: '50%', fontSize: '1.4rem', padding: 0 }}>−</button>
+    </div>
+  )
+}
+
+// ── Read-only score ───────────────────────────────────────
+function ReadOnlyScore({ label, score, leading, logo }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1 }}>
+      {logo && <img src={logo} alt={label} style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }} />}
+      <p style={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-2)', textAlign: 'center', maxWidth: 110 }}>{label}</p>
+      <span style={{ fontSize: '4.5rem', fontWeight: 900, lineHeight: 1, color: leading ? 'var(--text-1)' : 'var(--text-3)', letterSpacing: '-3px', fontVariantNumeric: 'tabular-nums', transition: 'color 200ms ease' }}>
+        {score}
+      </span>
+    </div>
+  )
+}
+
+// ── Players list ──────────────────────────────────────────
+function PlayersList({ team, players }) {
+  const sorted = [...players].sort((a, b) => {
+    const order = { Captain: 0, 'Vice Captain': 1, Player: 2 }
+    return (order[a.role] ?? 3) - (order[b.role] ?? 3)
+  })
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {team?.logoUrl
+          ? <img src={team.logoUrl} alt={team.name} style={{ width: 24, height: 24, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+          : <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>👥</span>}
+        <p style={{ fontWeight: 800, fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team?.name}</p>
+      </div>
+      {sorted.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '0.75rem', padding: '14px 8px' }}>No players</p>}
+      {sorted.map(p => (
+        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderBottom: '1px solid var(--border-light)' }}>
+          {p.photoUrl
+            ? <img src={p.photoUrl} alt={p.name} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
+            : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-mid)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 800, fontSize: '0.68rem', color: 'var(--accent)' }}>{p.name[0].toUpperCase()}</div>}
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <p style={{ fontWeight: 700, fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
+            <div style={{ display: 'flex', gap: 3, marginTop: 2 }}>
+              {p.role !== 'Player' && <RoleBadge role={p.role} />}
+              {p.position && <PosBadge pos={p.position} />}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function RoleBadge({ role }) {
+  const s = ROLE_COLORS[role] || ROLE_COLORS.Player
+  return <span style={{ fontSize: '0.52rem', fontWeight: 700, padding: '1px 5px', borderRadius: 20, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{role === 'Captain' ? 'C' : 'VC'}</span>
+}
+function PosBadge({ pos }) {
+  const s = POS_COLORS[pos]; if (!s) return null
+  return <span style={{ fontSize: '0.52rem', fontWeight: 700, padding: '1px 5px', borderRadius: 20, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{pos}</span>
+}
+
+// ── Generic page (no fixture selected) ───────────────────
+function GenericScoring() {
+  const navigate = useNavigate()
+  return (
+    <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60dvh', textAlign: 'center' }}>
+      <p style={{ fontSize: '2.5rem', marginBottom: 16 }}>🏐</p>
+      <p style={{ fontWeight: 800, fontSize: '1rem', marginBottom: 8 }}>No match selected</p>
+      <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', marginBottom: 24, maxWidth: 260 }}>
+        Go to Fixtures and tap <strong>Score</strong> on a match to open the live scoring screen.
+      </p>
+      <button className="btn btn-primary" onClick={() => navigate('/fixtures')} style={{ height: 44, padding: '0 24px', fontSize: '0.9rem' }}>
+        Go to Fixtures
+      </button>
+    </div>
+  )
+}
+
+// ── Icons ─────────────────────────────────────────────────
+const BackIcon    = () => <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+const PlayersIcon = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+const EyeIcon     = () => <svg width="16" height="16" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
