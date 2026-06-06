@@ -1,0 +1,6 @@
+/* Theme token overrides are applied via JS on :root */
+/* This file handles any theme-specific structural styles */
+
+body {
+  transition: background-color 300ms ease, color 300ms ease;
+}
