@@ -25,7 +25,7 @@ export default function Fixtures() {
   const [fixtures, setFixtures]             = useState([])
   const [activeEvent, setActiveEvent]       = useState('All')
   const [activeTab, setActiveTab]           = useState('upcoming') // 'upcoming' | 'results'
-  const [loading, setLoading]               = useState(true)
+  const [loading, setLoading]               = useState(false)
 
   // Load leagues — force-clear loading after 5s in case Firestore is slow
   useEffect(() => {

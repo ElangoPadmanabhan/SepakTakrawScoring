@@ -21,7 +21,7 @@ export default function LeagueTable() {
   const [teams, setTeams]           = useState([])
   const [fixtures, setFixtures]     = useState([])
   const [activeEvent, setActiveEvent] = useState(null)
-  const [loading, setLoading]       = useState(true)
+  const [loading, setLoading]       = useState(false)
 
   // Load all leagues — force-clear loading after 5s in case Firestore is slow
   useEffect(() => {
