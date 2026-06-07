@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Spinner from '../components/Spinner'
 import { signInWithPopup } from 'firebase/auth'
 import { auth, googleProvider } from '../firebase'
 import { useAuth } from '../context/AuthContext'
@@ -120,7 +121,7 @@ export default function LoginPage() {
               style={{ width: '100%', height: 48, gap: 10, fontSize: '0.95rem' }}
             >
               <GoogleIcon />
-              {loading ? 'Signing in…' : 'Continue with Google'}
+              {loading ? <><Spinner /> Signing in…</> : 'Continue with Google'}
             </button>
           </div>
         )}

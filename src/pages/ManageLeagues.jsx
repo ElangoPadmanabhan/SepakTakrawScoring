@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Spinner from '../components/Spinner'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   collection, addDoc, onSnapshot, doc,
@@ -216,7 +217,7 @@ export default function ManageLeagues() {
                 style={{ flex: 1, height: 46 }}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}
                 style={{ flex: 2, height: 46, fontSize: '0.92rem' }}>
-                {saving ? 'Creating…' : 'Create League'}
+                {saving ? <><Spinner /> Creating…</> : 'Create League'}
               </button>
             </div>
           </form>
@@ -242,12 +243,18 @@ export default function ManageLeagues() {
 
 function LeagueCard({ league, onSetActive, onDelete }) {
   const [confirmDel, setConfirmDel] = useState(false)
-  const [deleting, setDeleting]     = useState(false)
+  const [deleting,   setDeleting]   = useState(false)
+  const [activating, setActivating] = useState(false)
   const s = STATUS_STYLES[league.status] || STATUS_STYLES.upcoming
 
   const handleDelete = async () => {
     setDeleting(true)
     await onDelete(league.id)
+  }
+
+  const handleSetActive = async () => {
+    setActivating(true)
+    try { await onSetActive(league.id) } finally { setActivating(false) }
   }
 
   return (
@@ -283,17 +290,18 @@ function LeagueCard({ league, onSetActive, onDelete }) {
 
       <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
         <button
-          onClick={() => onSetActive(league.id)}
+          onClick={handleSetActive}
+          disabled={activating}
           className="btn btn-secondary"
-          style={{ flex: 1, height: 38, fontSize: '0.8rem', ...(league.status === 'active' ? { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.4)', color: '#16a34a' } : {}) }}>
-          {league.status === 'active' ? '● Active — tap to deactivate' : 'Set Active'}
+          style={{ flex: 1, height: 38, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, ...(league.status === 'active' ? { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.4)', color: '#16a34a' } : {}) }}>
+          {activating ? <><Spinner dark /> Working…</> : league.status === 'active' ? '● Active — tap to deactivate' : 'Set Active'}
         </button>
         <Link to={`/admin/leagues/${league.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 38, padding: '0 14px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontWeight: 700, fontSize: '0.8rem', textDecoration: 'none', boxShadow: '0 2px 8px rgba(255,85,0,0.25)' }}>
           Manage →
         </Link>
         {confirmDel ? (
           <button onClick={handleDelete} disabled={deleting} style={{ height: 38, padding: '0 12px', borderRadius: 8, background: '#dc2626', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
-            {deleting ? '…' : 'Confirm'}
+            {deleting ? <><Spinner /> Deleting…</> : 'Confirm Delete'}
           </button>
         ) : (
           <button onClick={() => setConfirmDel(true)} style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626', flexShrink: 0 }}>

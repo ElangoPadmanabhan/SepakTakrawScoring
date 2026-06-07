@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import Spinner from '../components/Spinner'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   doc, getDoc, updateDoc, collection,
@@ -172,7 +173,7 @@ export default function LeagueDetail() {
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn btn-secondary" onClick={() => { setEditMode(false); setErrors({}) }} style={{ flex:1, height:44 }}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving} style={{ flex:2, height:44, fontSize:'0.9rem' }}>
-                {saving ? 'Saving…' : 'Save Changes'}
+                {saving ? <><Spinner /> Saving…</> : 'Save Changes'}
               </button>
             </div>
           </form>
@@ -271,7 +272,7 @@ function AddTeamForm({ leagueId, onClose }) {
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" className="btn btn-secondary" onClick={onClose} style={{ flex: 1, height: 44 }}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving} style={{ flex: 2, height: 44, fontSize: '0.9rem' }}>
-            {saving ? 'Saving…' : 'Add Team'}
+            {saving ? <><Spinner /> Saving…</> : 'Add Team'}
           </button>
         </div>
       </form>
@@ -368,7 +369,7 @@ function TeamCard({ team, leagueId, leagueEvents }) {
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button className="btn btn-secondary" onClick={() => { setEditMode(false); setName(team.name); setPreview(team.logoUrl) }} style={{ flex: 1, height: 40 }}>Cancel</button>
             <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ flex: 2, height: 40, fontSize: '0.85rem' }}>
-              {saving ? 'Saving…' : 'Save Team'}
+              {saving ? <><Spinner /> Saving…</> : 'Save Team'}
             </button>
           </div>
         </div>
@@ -534,7 +535,7 @@ function AddPlayerForm({ leagueId, teamId, onClose, existingPlayers, leagueEvent
         <div style={{ display: 'flex', gap: 8 }}>
           <button type="button" className="btn btn-secondary" onClick={onClose} style={{ flex: 1, height: 40 }}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving} style={{ flex: 2, height: 40, fontSize: '0.85rem' }}>
-            {saving ? 'Saving…' : 'Add Player'}
+            {saving ? <><Spinner /> Saving…</> : 'Add Player'}
           </button>
         </div>
       </form>
@@ -642,7 +643,7 @@ function PlayerRow({ player, leagueId, teamId, leagueEvents }) {
         )}
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary" onClick={cancelEdit} style={{ flex:1, height:36, fontSize:'0.78rem' }}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ flex:2, height:36, fontSize:'0.78rem' }}>{saving?'Saving…':'Save'}</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ flex:2, height:36, fontSize:'0.78rem' }}>{saving ? <><Spinner /> Saving…</> : 'Save'}</button>
         </div>
       </div>
     )
@@ -931,7 +932,7 @@ function FixturesSection({ leagueId, league, teams }) {
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-secondary" onClick={() => setPreview(null)} style={{ height: 36, padding: '0 12px', fontSize: '0.8rem' }}>Discard</button>
               <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ height: 36, padding: '0 14px', fontSize: '0.8rem' }}>
-                {saving ? 'Saving…' : 'Confirm & Save'}
+                {saving ? <><Spinner /> Saving…</> : 'Confirm & Save'}
               </button>
             </div>
           </div>
