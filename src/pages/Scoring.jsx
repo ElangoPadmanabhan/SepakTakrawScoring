@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { doc, onSnapshot, updateDoc, collection } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, collection, increment } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import ViewerCount from '../components/ViewerCount'
@@ -120,11 +120,46 @@ export default function Scoring() {
     const sH = sets.filter(s => s.winner === 'home').length
     const sA = sets.filter(s => s.winner === 'away').length
     const updates = { sets, status: 'live' }
-    if (sH >= SETS_TO_WIN || sA >= SETS_TO_WIN) {
+
+    const matchOver = sH >= SETS_TO_WIN || sA >= SETS_TO_WIN
+    // Only update team stats once — guard against already-completed fixture
+    if (matchOver && fixture.status !== 'completed') {
       updates.status    = 'completed'
       updates.homeScore = sH
       updates.awayScore = sA
+
+      // Total points scored across all sets
+      const totalHome = sets.reduce((sum, s) => sum + (s.home || 0), 0)
+      const totalAway = sets.reduce((sum, s) => sum + (s.away || 0), 0)
+      const homeWon   = sH >= SETS_TO_WIN
+
+      // Update home team stats
+      await updateDoc(
+        doc(db, 'leagues', leagueId, 'teams', fixture.homeTeam.id), {
+          p:           increment(1),
+          w:           increment(homeWon ? 1 : 0),
+          l:           increment(homeWon ? 0 : 1),
+          setsWon:     increment(sH),
+          setsLost:    increment(sA),
+          ptsFor:      increment(totalHome),
+          ptsAgainst:  increment(totalAway),
+        }
+      )
+
+      // Update away team stats
+      await updateDoc(
+        doc(db, 'leagues', leagueId, 'teams', fixture.awayTeam.id), {
+          p:           increment(1),
+          w:           increment(homeWon ? 0 : 1),
+          l:           increment(homeWon ? 1 : 0),
+          setsWon:     increment(sA),
+          setsLost:    increment(sH),
+          ptsFor:      increment(totalAway),
+          ptsAgainst:  increment(totalHome),
+        }
+      )
     }
+
     await save(updates)
   }
 
