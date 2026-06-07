@@ -25,26 +25,6 @@ export default function Home() {
 
       {/* ── Hero ── */}
       <div style={{ background: 'linear-gradient(135deg,#ff5500 0%,#ff8c00 100%)', margin: '0 -16px', padding: '36px 24px 28px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
-        {/* Logo — light background fill */}
-        <img
-          src={`${import.meta.env.BASE_URL}HomePage Logo.jpg`}
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            right: -20,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: 220,
-            height: 220,
-            objectFit: 'contain',
-            opacity: 0.22,
-            mixBlendMode: 'overlay',
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
-          onError={e => { e.currentTarget.style.display = 'none' }}
-        />
         {/* subtle circle accents */}
         <div style={{ position: 'absolute', top: -40, left: -40, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ position: 'absolute', bottom: -30, left: 50, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
