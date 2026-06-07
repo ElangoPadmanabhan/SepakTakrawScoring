@@ -6,7 +6,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      workbox: {
+        skipWaiting: false,
+        clientsClaim: true,
+      },
       manifest: {
         name: 'Sepak Takraw Scoring',
         short_name: 'ST Score',

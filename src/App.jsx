@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Navbar from './components/Navbar'
+import UpdateBanner from './components/UpdateBanner'
 import LoginPage from './pages/LoginPage'
 import Home from './pages/Home'
 import Scoring from './pages/Scoring'
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="*"               element={<Navigate to="/" replace />} />
       </Routes>
       {isAuthed && <Navbar />}
+      <UpdateBanner />
     </>
   )
 }

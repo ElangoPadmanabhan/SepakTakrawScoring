@@ -163,6 +163,12 @@ body {
   50%      { opacity: 0.25; }
 }
 
+/* ─── Animations ─── */
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
 /* ─── Spinner ─── */
 @keyframes spin {
   to { transform: rotate(360deg); }
