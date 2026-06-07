@@ -31,10 +31,11 @@ export default function LeagueTable() {
       clearTimeout(timeout)
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setLeagues(all)
-      const active = all.find(l => l.status === 'active') || all[0] || null
       setSelectedLeague(prev => {
         if (prev && all.find(l => l.id === prev.id)) return all.find(l => l.id === prev.id)
-        return active
+        const pinned = sessionStorage.getItem('selectedLeagueId')
+        if (pinned) { sessionStorage.removeItem('selectedLeagueId'); return all.find(l => l.id === pinned) || all.find(l => l.status === 'active') || all[0] || null }
+        return all.find(l => l.status === 'active') || all[0] || null
       })
       setLoading(false)
     }, () => {

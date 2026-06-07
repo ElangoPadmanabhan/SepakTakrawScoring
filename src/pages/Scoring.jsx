@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { doc, onSnapshot, updateDoc, collection, increment } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, collection, increment, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import ViewerCount from '../components/ViewerCount'
@@ -158,6 +158,16 @@ export default function Scoring() {
           ptsAgainst:  increment(totalHome),
         }
       )
+
+      // Check if ALL fixtures in league are now completed → auto-complete league
+      const allFixSnap = await getDocs(collection(db, 'leagues', leagueId, 'fixtures'))
+      const allDone = allFixSnap.docs.every(d => {
+        const data = d.data()
+        return d.id === fixtureId ? true : data.status === 'completed'
+      })
+      if (allDone) {
+        await updateDoc(doc(db, 'leagues', leagueId), { status: 'completed' })
+      }
     }
 
     await save(updates)
@@ -680,19 +690,116 @@ function PosBadge({ pos }) {
   return <span style={{ fontSize: '0.52rem', fontWeight: 700, padding: '1px 5px', borderRadius: 20, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{pos}</span>
 }
 
-// ── Generic page (no fixture selected) ───────────────────
+// ── Generic page — shows all live matches to pick from ────
 function GenericScoring() {
   const navigate = useNavigate()
+  const [leagues,      setLeagues]      = useState([])
+  const [liveMatches,  setLiveMatches]  = useState([]) // { fixture, leagueId, leagueName }
+  const [loading,      setLoading]      = useState(true)
+
+  useEffect(() => {
+    return onSnapshot(
+      query(collection(db, 'leagues'), orderBy('createdAt', 'desc')),
+      snap => {
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        setLeagues(all.filter(l => l.status === 'active' || l.status === 'upcoming'))
+        setLoading(false)
+      }
+    )
+  }, [])
+
+  useEffect(() => {
+    if (leagues.length === 0) return
+    const unsubs = leagues.map(league =>
+      onSnapshot(
+        query(collection(db, 'leagues', league.id, 'fixtures'), orderBy('date')),
+        snap => {
+          const live = snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(f => f.status === 'live')
+            .map(f => ({ fixture: f, leagueId: league.id, leagueName: league.name }))
+          setLiveMatches(prev => {
+            const others = prev.filter(m => m.leagueId !== league.id)
+            return [...others, ...live]
+          })
+        }
+      )
+    )
+    return () => unsubs.forEach(u => u())
+  }, [leagues.map(l => l.id).join(',')])
+
   return (
-    <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60dvh', textAlign: 'center' }}>
-      <p style={{ fontSize: '2.5rem', marginBottom: 16 }}>🏐</p>
-      <p style={{ fontWeight: 800, fontSize: '1rem', marginBottom: 8 }}>No match selected</p>
-      <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', marginBottom: 24, maxWidth: 260 }}>
-        Go to Fixtures and tap <strong>Score</strong> on a match to open the live scoring screen.
-      </p>
-      <button className="btn btn-primary" onClick={() => navigate('/fixtures')} style={{ height: 44, padding: '0 24px', fontSize: '0.9rem' }}>
-        Go to Fixtures
-      </button>
+    <div className="page">
+      <p className="page-subtitle">Live Scoring</p>
+      <h1 className="page-title" style={{ marginBottom: 20 }}>Select a Match</h1>
+
+      {loading ? (
+        <p style={{ color: 'var(--text-3)', textAlign: 'center', padding: '32px 0' }}>Loading…</p>
+      ) : liveMatches.length > 0 ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+            <p style={{ fontSize: '0.72rem', fontWeight: 800, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              {liveMatches.length} Match{liveMatches.length > 1 ? 'es' : ''} Live Now
+            </p>
+          </div>
+          {liveMatches.map(({ fixture: f, leagueId, leagueName }) => (
+            <div key={f.id} className="card"
+              onClick={() => navigate(`/scoring/${leagueId}/${f.id}`)}
+              style={{ border: '1px solid rgba(34,197,94,0.35)', marginBottom: 12, cursor: 'pointer', padding: 0, overflow: 'hidden' }}>
+              <div style={{ height: 3, background: 'linear-gradient(90deg,#22c55e,#16a34a)' }} />
+              <div style={{ padding: '12px 14px' }}>
+                {/* League + event */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-3)' }}>{leagueName}</span>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(255,85,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(255,85,0,0.15)' }}>
+                    {f.event === 'Regu' ? '👟' : '🏐'} {f.event} · L{f.leg}
+                  </span>
+                </div>
+                {/* Teams + score */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <LiveTeamBlock team={f.homeTeam} align="right" />
+                  <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, padding: '8px 14px', textAlign: 'center', flexShrink: 0 }}>
+                    <p style={{ fontWeight: 900, fontSize: '1.2rem', color: '#16a34a', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                      {f.homeScore ?? 0} – {f.awayScore ?? 0}
+                    </p>
+                    <p style={{ fontSize: '0.52rem', color: 'var(--text-3)', fontWeight: 600, marginTop: 3 }}>SETS</p>
+                  </div>
+                  <LiveTeamBlock team={f.awayTeam} align="left" />
+                </div>
+                <p style={{ textAlign: 'center', fontSize: '0.72rem', color: '#16a34a', fontWeight: 600, marginTop: 10 }}>
+                  Tap to watch →
+                </p>
+              </div>
+            </div>
+          ))}
+        </>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50dvh', textAlign: 'center' }}>
+          <p style={{ fontSize: '2.5rem', marginBottom: 16 }}>🏐</p>
+          <p style={{ fontWeight: 800, fontSize: '1rem', marginBottom: 8 }}>No live matches right now</p>
+          <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', marginBottom: 24, maxWidth: 260 }}>
+            Matches will appear here once they go live. Check Fixtures for the schedule.
+          </p>
+          <button className="btn btn-primary" onClick={() => navigate('/fixtures')}
+            style={{ height: 44, padding: '0 24px', fontSize: '0.9rem' }}>
+            View Fixtures
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LiveTeamBlock({ team, align }) {
+  if (!team) return <div style={{ flex: 1 }} />
+  return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, justifyContent: align === 'right' ? 'flex-end' : 'flex-start', overflow: 'hidden' }}>
+      {align === 'right' && <span style={{ fontWeight: 700, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.name}</span>}
+      {team.logoUrl
+        ? <img src={team.logoUrl} alt={team.name} style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+        : <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', flexShrink: 0 }}>👥</div>}
+      {align === 'left' && <span style={{ fontWeight: 700, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.name}</span>}
     </div>
   )
 }

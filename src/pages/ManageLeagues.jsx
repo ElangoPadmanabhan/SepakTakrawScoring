@@ -50,12 +50,6 @@ export default function ManageLeagues() {
     if (!validate()) return
     setSaving(true)
     try {
-      // If setting as active, deactivate others
-      if (form.status === 'active') {
-        for (const l of leagues.filter(l => l.status === 'active')) {
-          await updateDoc(doc(db, 'leagues', l.id), { status: 'upcoming' })
-        }
-      }
       await addDoc(collection(db, 'leagues'), {
         name:      form.name.trim(),
         year:      form.year.trim(),
@@ -73,11 +67,11 @@ export default function ManageLeagues() {
   }
 
   const setActive = async (leagueId) => {
-    for (const l of leagues) {
-      await updateDoc(doc(db, 'leagues', l.id), {
-        status: l.id === leagueId ? 'active' : l.status === 'active' ? 'upcoming' : l.status,
-      })
-    }
+    const l = leagues.find(x => x.id === leagueId)
+    if (!l) return
+    await updateDoc(doc(db, 'leagues', leagueId), {
+      status: l.status === 'active' ? 'upcoming' : 'active',
+    })
   }
 
   const deleteLeague = async (leagueId) => {
@@ -288,16 +282,12 @@ function LeagueCard({ league, onSetActive, onDelete }) {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-        {league.status !== 'active' ? (
-          <button onClick={() => onSetActive(league.id)} className="btn btn-secondary" style={{ flex: 1, height: 38, fontSize: '0.8rem' }}>
-            Set Active
-          </button>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e' }} />
-            <span style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: 700 }}>Currently Active</span>
-          </div>
-        )}
+        <button
+          onClick={() => onSetActive(league.id)}
+          className="btn btn-secondary"
+          style={{ flex: 1, height: 38, fontSize: '0.8rem', ...(league.status === 'active' ? { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.4)', color: '#16a34a' } : {}) }}>
+          {league.status === 'active' ? '● Active — tap to deactivate' : 'Set Active'}
+        </button>
         <Link to={`/admin/leagues/${league.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 38, padding: '0 14px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontWeight: 700, fontSize: '0.8rem', textDecoration: 'none', boxShadow: '0 2px 8px rgba(255,85,0,0.25)' }}>
           Manage →
         </Link>
