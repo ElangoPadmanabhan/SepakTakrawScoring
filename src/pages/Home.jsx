@@ -24,24 +24,41 @@ export default function Home() {
     <div className="page" style={{ paddingTop: 0 }}>
 
       {/* ── Hero ── */}
-      <div style={{ background: 'linear-gradient(135deg,#ff5500 0%,#ff8c00 100%)', margin: '0 -16px', padding: '36px 24px 24px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
-        <div style={{ position: 'absolute', bottom: -30, right: 60, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
-          <div style={{ flex: 1, paddingRight: 12 }}>
-            <p style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.75)', marginBottom: 6 }}>
-              Chennai Sepak Takraw
-            </p>
-            <h1 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>
-              {activeLeagues.length > 1 ? `${activeLeagues.length} Tournaments Live` : activeLeagues[0]?.name || 'League Dashboard'}
-            </h1>
-            <span style={{ display: 'inline-block', marginTop: 10, background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '3px 10px', fontSize: '0.68rem', fontWeight: 700, color: '#fff' }}>
-              {isAdmin ? '⚡ Admin' : `👤 ${user?.displayName?.split(' ')[0] || 'User'}`}
-            </span>
-          </div>
-          <img src="/logo.jpg" alt="Logo" width={72} height={72}
-            style={{ objectFit: 'contain', flexShrink: 0, mixBlendMode: 'multiply', borderRadius: 8 }}
-            onError={e => { e.currentTarget.style.display = 'none' }} />
+      <div style={{ background: 'linear-gradient(135deg,#ff5500 0%,#ff8c00 100%)', margin: '0 -16px', padding: '36px 24px 28px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
+        {/* Logo — large watermark in background */}
+        <img
+          src="/logo.jpg"
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            right: -24,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: 200,
+            height: 200,
+            objectFit: 'contain',
+            opacity: 0.13,
+            filter: 'brightness(0) invert(1)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+          onError={e => { e.currentTarget.style.display = 'none' }}
+        />
+        {/* subtle circle accents */}
+        <div style={{ position: 'absolute', top: -40, left: -40, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: 50, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+        {/* text */}
+        <div style={{ position: 'relative' }}>
+          <p style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>
+            Chennai Sepak Takraw
+          </p>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', lineHeight: 1.2, marginBottom: 10 }}>
+            {activeLeagues.length > 1 ? `${activeLeagues.length} Tournaments Live` : activeLeagues[0]?.name || 'League Dashboard'}
+          </h1>
+          <span style={{ display: 'inline-block', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '4px 12px', fontSize: '0.68rem', fontWeight: 700, color: '#fff' }}>
+            {isAdmin ? '⚡ Admin' : `👤 ${user?.displayName?.split(' ')[0] || 'User'}`}
+          </span>
         </div>
       </div>
 
