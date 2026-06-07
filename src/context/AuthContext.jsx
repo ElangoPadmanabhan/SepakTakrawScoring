@@ -3,9 +3,9 @@ import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
-// ── Admin credentials (scorer login) ──────────────────
-const ADMIN_USERNAME = 'chennaiTakraw'
-const ADMIN_PASSWORD = 'Takraw@123Love'
+// ── Admin credentials — loaded from environment variables ──
+const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USERNAME
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD
 
 const AuthContext = createContext(null)
 
