@@ -56,7 +56,7 @@ export default function LoginPage() {
       {/* Logo + title */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <img
-          src="/logo.jpg"
+          src={`${import.meta.env.BASE_URL}logo.jpg`}
           alt="Chennai Sepak Takraw League"
           width={90}
           height={90}

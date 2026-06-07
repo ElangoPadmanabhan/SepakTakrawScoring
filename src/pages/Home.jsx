@@ -25,21 +25,21 @@ export default function Home() {
 
       {/* ── Hero ── */}
       <div style={{ background: 'linear-gradient(135deg,#ff5500 0%,#ff8c00 100%)', margin: '0 -16px', padding: '36px 24px 28px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
-        {/* Logo — large watermark in background */}
+        {/* Logo — light background fill */}
         <img
-          src="/logo.jpg"
+          src={`${import.meta.env.BASE_URL}HomePage Logo.jpg`}
           alt=""
           aria-hidden="true"
           style={{
             position: 'absolute',
-            right: -24,
+            right: -20,
             top: '50%',
             transform: 'translateY(-50%)',
-            width: 200,
-            height: 200,
+            width: 220,
+            height: 220,
             objectFit: 'contain',
-            opacity: 0.13,
-            filter: 'brightness(0) invert(1)',
+            opacity: 0.22,
+            mixBlendMode: 'overlay',
             pointerEvents: 'none',
             userSelect: 'none',
           }}

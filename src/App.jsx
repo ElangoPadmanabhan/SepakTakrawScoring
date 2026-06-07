@@ -21,7 +21,7 @@ function Splash() {
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
       <div style={{ textAlign: 'center' }}>
-        <img src="/logo.jpg" alt="" width={72} style={{ objectFit: 'contain', marginBottom: 16 }}
+        <img src={`${import.meta.env.BASE_URL}logo.jpg`} alt="" width={72} style={{ objectFit: 'contain', marginBottom: 16 }}
           onError={e => { e.currentTarget.style.display = 'none' }} />
         <p style={{ color: 'var(--text-2)', fontSize: '0.9rem' }}>Loading…</p>
       </div>
