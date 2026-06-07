@@ -23,21 +23,26 @@ export default function LeagueTable() {
   const [activeEvent, setActiveEvent] = useState(null)
   const [loading, setLoading]       = useState(true)
 
-  // Load all leagues ordered by status (active first) then name
+  // Load all leagues — force-clear loading after 5s in case Firestore is slow
   useEffect(() => {
+    const timeout = setTimeout(() => setLoading(false), 5000)
     const q = query(collection(db, 'leagues'), orderBy('createdAt', 'desc'))
-    return onSnapshot(q, snap => {
+    const unsub = onSnapshot(q, snap => {
+      clearTimeout(timeout)
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setLeagues(all)
-      // Auto-select active league, else first league
       const active = all.find(l => l.status === 'active') || all[0] || null
       setSelectedLeague(prev => {
-        // Keep current selection if still valid
         if (prev && all.find(l => l.id === prev.id)) return all.find(l => l.id === prev.id)
         return active
       })
       setLoading(false)
+    }, () => {
+      // onSnapshot error — stop loading and show empty state
+      clearTimeout(timeout)
+      setLoading(false)
     })
+    return () => { clearTimeout(timeout); unsub() }
   }, [])
 
   // When selected league changes, set default event tab

@@ -27,9 +27,11 @@ export default function Fixtures() {
   const [activeTab, setActiveTab]           = useState('upcoming') // 'upcoming' | 'results'
   const [loading, setLoading]               = useState(true)
 
-  // Load leagues
+  // Load leagues — force-clear loading after 5s in case Firestore is slow
   useEffect(() => {
-    return onSnapshot(query(collection(db, 'leagues'), orderBy('createdAt', 'desc')), snap => {
+    const timeout = setTimeout(() => setLoading(false), 5000)
+    const unsub = onSnapshot(query(collection(db, 'leagues'), orderBy('createdAt', 'desc')), snap => {
+      clearTimeout(timeout)
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setLeagues(all)
       setSelectedLeague(prev => {
@@ -37,7 +39,8 @@ export default function Fixtures() {
         return all.find(l => l.status === 'active') || all[0] || null
       })
       setLoading(false)
-    })
+    }, () => { clearTimeout(timeout); setLoading(false) })
+    return () => { clearTimeout(timeout); unsub() }
   }, [])
 
   // Load fixtures for selected league
