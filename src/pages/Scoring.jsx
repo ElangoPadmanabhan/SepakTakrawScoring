@@ -59,8 +59,14 @@ export default function Scoring() {
   const [loading, setLoading]         = useState(!!fixtureId)
   const [showPlayers, setShowPlayers] = useState(false)
   const [busy, setBusy]               = useState(false)
-  const [timeoutState, setTimeoutState] = useState(null) // {side, remaining}
+  const [timeoutState, setTimeoutState] = useState(null)
   const [liveUrl, setLiveUrl]         = useState('')
+  // lineup picker (before start)
+  const [homeStarting, setHomeStarting] = useState([]) // playerIds selected as starting
+  const [awayStarting, setAwayStarting] = useState([])
+  const [showLineupPicker, setShowLineupPicker] = useState(false)
+  // sub/re-entry modal
+  const [subModal, setSubModal] = useState(null) // { side, type: 'sub'|'reentry' }
 
   // ── Timeout countdown ─────────────────────────────────
   useEffect(() => {
@@ -190,10 +196,31 @@ export default function Scoring() {
     await save({ sets, currentSet: fixture.currentSet + 1 })
   }
 
-const startMatch = async () => {
+  const buildLineup = (allPlayers, startingIds) =>
+    allPlayers.map(p => ({ id: p.id, name: p.name, role: p.role || 'Player', position: p.position || null, photoUrl: p.photoUrl || null, status: startingIds.includes(p.id) ? 'playing' : 'bench' }))
+
+  const startMatch = async () => {
     const updates = { status: 'live', sets: [emptySet()], currentSet: 0, homeScore: null, awayScore: null }
     if (liveUrl.trim()) updates.liveUrl = liveUrl.trim()
+    if (homeStarting.length > 0 || awayStarting.length > 0) {
+      updates.lineup = {
+        home: buildLineup(homePlayers, homeStarting),
+        away: buildLineup(awayPlayers, awayStarting),
+      }
+    }
     await save(updates)
+  }
+
+  // Called from SubReentryModal with { outId, inId }
+  const applySwap = async (side, { outId, inId }) => {
+    const lineup = fixture.lineup || { home: [], away: [] }
+    const updated = { ...lineup, [side]: lineup[side].map(p => {
+      if (p.id === outId) return { ...p, status: 'bench' }
+      if (p.id === inId)  return { ...p, status: 'playing' }
+      return p
+    })}
+    await save({ lineup: updated })
+    setSubModal(null)
   }
 
   // ── Timeout ───────────────────────────────────────────
@@ -299,16 +326,35 @@ const startMatch = async () => {
       {/* Start match */}
       {isAdmin && fixture.status === 'scheduled' && (
         <div style={{ marginBottom: 12 }}>
+          {/* Live stream URL */}
           <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
             Live Stream URL <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
           </p>
           <input
             type="url"
-            placeholder="https://youtube.com/live/... or any stream link"
+            placeholder="https://youtube.com/live/..."
             value={liveUrl}
             onChange={e => setLiveUrl(e.target.value)}
-            style={{ width: '100%', height: 44, borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', padding: '0 14px', fontSize: '0.85rem', fontFamily: 'inherit', color: 'var(--text-1)', marginBottom: 10, boxSizing: 'border-box', outline: 'none' }}
+            style={{ width: '100%', height: 44, borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', padding: '0 14px', fontSize: '0.85rem', fontFamily: 'inherit', color: 'var(--text-1)', marginBottom: 12, boxSizing: 'border-box', outline: 'none' }}
           />
+
+          {/* Lineup picker toggle */}
+          <button
+            onClick={() => setShowLineupPicker(v => !v)}
+            style={{ width: '100%', height: 42, borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-elevated)', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-1)', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            👕 {showLineupPicker ? 'Hide Lineup Picker' : 'Set Starting Lineup (optional)'}
+          </button>
+
+          {showLineupPicker && (
+            <LineupPicker
+              event={fixture.event}
+              homeTeam={fixture.homeTeam} homePlayers={homePlayers}
+              awayTeam={fixture.awayTeam} awayPlayers={awayPlayers}
+              homeStarting={homeStarting} setHomeStarting={setHomeStarting}
+              awayStarting={awayStarting} setAwayStarting={setAwayStarting}
+            />
+          )}
+
           <button className="btn btn-primary" onClick={startMatch} disabled={busy}
             style={{ width: '100%', height: 46, fontSize: '0.95rem' }}>
             ▶ Start Match
@@ -411,8 +457,8 @@ const startMatch = async () => {
             isAdmin={isAdmin}
             busy={busy}
             onTimeout={() => callTimeout('home')}
-            onSub={() => useSub('home')}
-            onReentry={() => useReentry('home')}
+            onSub={() => fixture.lineup ? setSubModal({ side: 'home', type: 'sub' }) : useSub('home')}
+            onReentry={() => fixture.lineup ? setSubModal({ side: 'home', type: 'reentry' }) : useReentry('home')}
             timeoutActive={timeoutState?.side === 'home' ? timeoutState.remaining : null}
           />
           <TeamActionPanel
@@ -425,8 +471,8 @@ const startMatch = async () => {
             isAdmin={isAdmin}
             busy={busy}
             onTimeout={() => callTimeout('away')}
-            onSub={() => useSub('away')}
-            onReentry={() => useReentry('away')}
+            onSub={() => fixture.lineup ? setSubModal({ side: 'away', type: 'sub' }) : useSub('away')}
+            onReentry={() => fixture.lineup ? setSubModal({ side: 'away', type: 'reentry' }) : useReentry('away')}
             timeoutActive={timeoutState?.side === 'away' ? timeoutState.remaining : null}
           />
         </div>
@@ -458,6 +504,11 @@ const startMatch = async () => {
       )}
 
 
+      {/* ── Lineup display (everyone sees) ── */}
+      {fixture.lineup && (
+        <LineupDisplay lineup={fixture.lineup} homeTeam={fixture.homeTeam} awayTeam={fixture.awayTeam} />
+      )}
+
       {/* Players panel */}
       <button className="btn btn-secondary" onClick={() => setShowPlayers(v => !v)}
         style={{ width: '100%', height: 42, fontSize: '0.85rem', gap: 8, marginBottom: 12 }}>
@@ -469,6 +520,21 @@ const startMatch = async () => {
           <PlayersList team={fixture.homeTeam} players={homePlayers} />
           <PlayersList team={fixture.awayTeam} players={awayPlayers} />
         </div>
+      )}
+
+      {/* ── Sub / Re-entry modal ── */}
+      {subModal && (
+        <SubReentryModal
+          type={subModal.type}
+          lineup={fixture.lineup?.[subModal.side] || []}
+          teamName={subModal.side === 'home' ? fixture.homeTeam?.name : fixture.awayTeam?.name}
+          onConfirm={(swap) => {
+            const fn = subModal.type === 'sub' ? useSub : useReentry
+            fn(subModal.side)
+            applySwap(subModal.side, swap)
+          }}
+          onCancel={() => setSubModal(null)}
+        />
       )}
 
       {/* Rules reference */}
@@ -720,6 +786,192 @@ function RoleBadge({ role }) {
 function PosBadge({ pos }) {
   const s = POS_COLORS[pos]; if (!s) return null
   return <span style={{ fontSize: '0.52rem', fontWeight: 700, padding: '1px 5px', borderRadius: 20, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{pos}</span>
+}
+
+// ── Lineup picker (before start match) ───────────────────
+function LineupPicker({ event, homeTeam, homePlayers, awayTeam, awayPlayers, homeStarting, setHomeStarting, awayStarting, setAwayStarting }) {
+  const courtSize = event === 'Quad' ? 4 : 3
+
+  const toggle = (id, starting, setStarting) => {
+    if (starting.includes(id)) {
+      setStarting(starting.filter(x => x !== id))
+    } else if (starting.length < courtSize) {
+      setStarting([...starting, id])
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <p style={{ fontSize: '0.68rem', color: 'var(--text-3)', fontWeight: 600, marginBottom: 8, textAlign: 'center' }}>
+        Select {courtSize} starting players per team
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {[
+          { team: homeTeam, players: homePlayers, starting: homeStarting, setStarting: setHomeStarting },
+          { team: awayTeam, players: awayPlayers, starting: awayStarting, setStarting: setAwayStarting },
+        ].map(({ team, players, starting, setStarting }) => (
+          <div key={team?.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ padding: '8px 10px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+              <p style={{ fontWeight: 800, fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team?.name}</p>
+              <p style={{ fontSize: '0.6rem', color: starting.length >= courtSize ? '#16a34a' : 'var(--accent)', fontWeight: 700 }}>
+                {starting.length}/{courtSize} selected
+              </p>
+            </div>
+            {players.length === 0 && (
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', padding: '12px 10px', textAlign: 'center' }}>No players added</p>
+            )}
+            {players.map(p => {
+              const selected = starting.includes(p.id)
+              return (
+                <div key={p.id}
+                  onClick={() => toggle(p.id, starting, setStarting)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 10px', borderBottom: '1px solid var(--border-light)', cursor: 'pointer', background: selected ? 'rgba(255,85,0,0.05)' : 'transparent', transition: 'background 120ms' }}>
+                  <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--accent)' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {selected && <span style={{ color: '#fff', fontSize: '0.55rem', fontWeight: 900 }}>✓</span>}
+                  </div>
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <p style={{ fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
+                    {(p.role !== 'Player' || p.position) && (
+                      <p style={{ fontSize: '0.58rem', color: 'var(--text-3)' }}>{[p.role !== 'Player' ? p.role : null, p.position].filter(Boolean).join(' · ')}</p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Sub / Re-entry modal ──────────────────────────────────
+function SubReentryModal({ type, lineup, teamName, onConfirm, onCancel }) {
+  const [outId, setOutId] = useState(null)
+  const [inId,  setInId]  = useState(null)
+
+  const playing = lineup.filter(p => p.status === 'playing')
+  const bench   = lineup.filter(p => p.status === 'bench')
+  const canConfirm = outId && inId
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 500, display: 'flex', alignItems: 'flex-end' }}
+      onClick={onCancel}>
+      <div style={{ width: '100%', background: 'var(--bg-base)', borderRadius: '20px 20px 0 0', padding: '20px 16px 36px', maxHeight: '80dvh', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div>
+            <p style={{ fontWeight: 900, fontSize: '1rem' }}>{type === 'sub' ? '🔄 Substitution' : '↩️ Re-entry'}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-2)' }}>{teamName}</p>
+          </div>
+          <button onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-3)' }}>✕</button>
+        </div>
+
+        {/* OUT — pick from playing */}
+        <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>
+          Player Going OUT (currently playing)
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+          {playing.map(p => (
+            <div key={p.id} onClick={() => setOutId(outId === p.id ? null : p.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: `2px solid ${outId === p.id ? '#dc2626' : 'var(--border)'}`, background: outId === p.id ? 'rgba(239,68,68,0.06)' : 'var(--bg-card)', cursor: 'pointer', transition: 'all 150ms' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.72rem', color: '#dc2626', flexShrink: 0 }}>
+                {p.name[0]?.toUpperCase()}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontWeight: 700, fontSize: '0.85rem' }}>{p.name}</p>
+                {(p.role !== 'Player' || p.position) && <p style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>{[p.role !== 'Player' ? p.role : null, p.position].filter(Boolean).join(' · ')}</p>}
+              </div>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#16a34a' }}>ON COURT</span>
+            </div>
+          ))}
+        </div>
+
+        {/* IN — pick from bench */}
+        <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>
+          Player Coming IN (from bench)
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+          {bench.length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--text-3)', textAlign: 'center', padding: '12px 0' }}>No bench players</p>}
+          {bench.map(p => (
+            <div key={p.id} onClick={() => setInId(inId === p.id ? null : p.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: `2px solid ${inId === p.id ? '#16a34a' : 'var(--border)'}`, background: inId === p.id ? 'rgba(34,197,94,0.06)' : 'var(--bg-card)', cursor: 'pointer', transition: 'all 150ms' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.72rem', color: '#16a34a', flexShrink: 0 }}>
+                {p.name[0]?.toUpperCase()}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontWeight: 700, fontSize: '0.85rem' }}>{p.name}</p>
+                {(p.role !== 'Player' || p.position) && <p style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>{[p.role !== 'Player' ? p.role : null, p.position].filter(Boolean).join(' · ')}</p>}
+              </div>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-3)' }}>BENCH</span>
+            </div>
+          ))}
+        </div>
+
+        <button className="btn btn-primary" onClick={() => canConfirm && onConfirm({ outId, inId })}
+          disabled={!canConfirm}
+          style={{ width: '100%', height: 48, fontSize: '0.95rem', opacity: canConfirm ? 1 : 0.45 }}>
+          Confirm {type === 'sub' ? 'Substitution' : 'Re-entry'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Lineup display (visible to all during match) ──────────
+function LineupDisplay({ lineup, homeTeam, awayTeam }) {
+  const homePlay  = lineup.home?.filter(p => p.status === 'playing') || []
+  const homeBench = lineup.home?.filter(p => p.status === 'bench')   || []
+  const awayPlay  = lineup.away?.filter(p => p.status === 'playing') || []
+  const awayBench = lineup.away?.filter(p => p.status === 'bench')   || []
+
+  return (
+    <div className="card" style={{ marginBottom: 12, padding: 0, overflow: 'hidden' }}>
+      <div style={{ padding: '10px 14px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+        <p style={{ fontWeight: 800, fontSize: '0.78rem' }}>👕 Match Lineup</p>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        {[
+          { team: homeTeam, playing: homePlay, bench: homeBench },
+          { team: awayTeam, playing: awayPlay, bench: awayBench },
+        ].map(({ team, playing, bench }, ti) => (
+          <div key={ti} style={{ borderRight: ti === 0 ? '1px solid var(--border)' : 'none', padding: '10px 10px' }}>
+            <p style={{ fontWeight: 800, fontSize: '0.7rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 8, color: 'var(--text-2)' }}>{team?.name}</p>
+
+            {/* Playing */}
+            {playing.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,85,0,0.1)', border: '1.5px solid rgba(255,85,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.6rem', color: 'var(--accent)', flexShrink: 0 }}>
+                  {p.name[0]?.toUpperCase()}
+                </div>
+                <div style={{ overflow: 'hidden', minWidth: 0 }}>
+                  <p style={{ fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
+                  {p.position && <p style={{ fontSize: '0.55rem', color: 'var(--text-3)' }}>{p.position}</p>}
+                </div>
+              </div>
+            ))}
+
+            {/* Bench */}
+            {bench.length > 0 && (
+              <>
+                <p style={{ fontSize: '0.55rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 8, marginBottom: 4 }}>Bench</p>
+                {bench.map(p => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, opacity: 0.6 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.55rem', color: 'var(--text-3)', flexShrink: 0 }}>
+                      {p.name[0]?.toUpperCase()}
+                    </div>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // ── Generic page — shows all live matches to pick from ────
