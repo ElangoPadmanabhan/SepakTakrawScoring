@@ -1063,10 +1063,10 @@ function GenericScoring() {
           ))}
         </>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50dvh', textAlign: 'center' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '48px 16px' }}>
           <p style={{ fontSize: '2.5rem', marginBottom: 16 }}>🏐</p>
           <p style={{ fontWeight: 800, fontSize: '1rem', marginBottom: 8 }}>No live matches right now</p>
-          <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', marginBottom: 24, maxWidth: 260 }}>
+          <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', maxWidth: 260, margin: '0 auto 24px' }}>
             Matches will appear here once they go live. Check Fixtures for the schedule.
           </p>
           <button className="btn btn-primary" onClick={() => navigate('/fixtures')}
