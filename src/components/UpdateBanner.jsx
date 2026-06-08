@@ -14,7 +14,7 @@ async function fetchVersion() {
   }
 }
 
-async function hardRefresh() {
+export async function hardRefresh() {
   try {
     if ('serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations()
@@ -101,36 +101,6 @@ export default function UpdateBanner() {
         </div>
       )}
 
-      {/* Always-visible hard refresh button (bottom-right corner) */}
-      <button
-        onClick={handleHardRefresh}
-        disabled={refreshing}
-        title="Clear cache & refresh"
-        style={{
-          position: 'fixed',
-          bottom: 76,
-          right: 16,
-          zIndex: 9998,
-          width: 40,
-          height: 40,
-          borderRadius: '50%',
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border)',
-          color: 'var(--text-3)',
-          fontSize: '1rem',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-          opacity: refreshing ? 0.5 : 0.75,
-          transition: 'opacity 150ms ease',
-        }}
-        onTouchStart={e => e.currentTarget.style.opacity = '1'}
-        onTouchEnd={e => e.currentTarget.style.opacity = refreshing ? '0.5' : '0.75'}
-      >
-        {refreshing ? '⏳' : '🔄'}
-      </button>
     </>
   )
 }

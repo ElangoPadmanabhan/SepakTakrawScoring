@@ -1,15 +1,23 @@
+import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { Avatar } from './TopBar'
 import { useSupportedTeam } from '../hooks/useSupportedTeam'
+import { hardRefresh } from './UpdateBanner'
 
 export default function ProfileSheet({ open, onClose }) {
   const { user, isAdmin, adminLogout, userLogout } = useAuth()
   const { supportedTeam } = useSupportedTeam()
+  const [refreshing, setRefreshing] = useState(false)
 
   const handleSignOut = async () => {
     onClose()
     if (isAdmin) adminLogout()
     else await userLogout()
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await hardRefresh()
   }
 
   if (!open) return null
@@ -123,6 +131,29 @@ export default function ProfileSheet({ open, onClose }) {
               </div>
             </div>
           )}
+
+          {/* Clear cache & refresh */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 14,
+            padding: '14px 24px',
+            borderBottom: '1px solid var(--border)',
+            cursor: 'pointer', opacity: refreshing ? 0.5 : 1,
+          }} onClick={handleRefresh}>
+            <div style={{
+              width: 38, height: 38, borderRadius: 10,
+              background: 'rgba(99,102,241,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.1rem', flexShrink: 0,
+            }}>🔄</div>
+            <div>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>
+                App
+              </p>
+              <p style={{ fontWeight: 700, fontSize: '0.92rem' }}>
+                {refreshing ? 'Refreshing…' : 'Clear Cache & Refresh'}
+              </p>
+            </div>
+          </div>
 
           {/* Sign out */}
           <div style={{ padding: '12px 24px' }}>
