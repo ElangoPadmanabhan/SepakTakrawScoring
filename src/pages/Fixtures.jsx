@@ -25,7 +25,7 @@ export default function Fixtures() {
   const [fixtures, setFixtures]             = useState([])
   const [activeEvent, setActiveEvent]       = useState('All')
   const [activeTab, setActiveTab]           = useState('upcoming') // 'upcoming' | 'results'
-  const [loading, setLoading]               = useState(false)
+  const [loading, setLoading]               = useState(true)
 
   // Load leagues — force-clear loading after 5s in case Firestore is slow
   useEffect(() => {
@@ -370,7 +370,7 @@ function FixtureCard({ f, supportedTeam, isAdmin, leagueId }) {
         <TeamBlock team={f.homeTeam} supported={f.homeTeam?.id === supportedTeam} align="right" />
         <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', textAlign: 'center', minWidth: 60, flexShrink: 0 }}>
           {isLive ? (
-            <span style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{f.homeScore ?? 0} – {f.awayScore ?? 0}</span>
+            <span style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{(f.sets || []).filter(s => s.winner === 'home').length} – {(f.sets || []).filter(s => s.winner === 'away').length}</span>
           ) : (
             <span style={{ fontWeight: 700, fontSize: '0.75rem', color: 'var(--text-3)' }}>vs</span>
           )}
