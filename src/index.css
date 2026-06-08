@@ -220,3 +220,72 @@ body {
 
 /* ─── Divider ─── */
 .divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+/* ─── League Table responsive grid ─── */
+.league-table-grid {
+  display: grid;
+  grid-template-columns: 22px 1fr 18px 18px 18px 34px 34px 26px;
+  gap: 3px;
+  align-items: center;
+}
+@media (max-width: 374px) {
+  .league-table-grid {
+    grid-template-columns: 20px 1fr 16px 16px 16px 30px 30px 24px;
+    gap: 2px;
+  }
+}
+
+/* ─── Fixtures grid ─── */
+.fixture-row {
+  display: grid;
+  grid-template-columns: 1fr 52px 1fr 54px;
+  gap: 0;
+  padding: 11px 12px;
+  align-items: center;
+}
+.fixture-header {
+  display: grid;
+  grid-template-columns: 1fr 52px 1fr 54px;
+  gap: 0;
+  padding: 7px 12px;
+}
+@media (max-width: 374px) {
+  .fixture-row,
+  .fixture-header {
+    grid-template-columns: 1fr 48px 1fr 46px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+/* ─── Team name truncation ─── */
+.team-name-cell {
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.team-name-text {
+  font-weight: 700;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+/* ─── Scoring panel ─── */
+.score-panel-name {
+  font-size: 0.82rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  text-align: center;
+}
+@media (max-width: 374px) {
+  .score-panel-name { font-size: 0.72rem; }
+}

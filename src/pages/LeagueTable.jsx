@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useSupportedTeam } from '../hooks/useSupportedTeam'
@@ -26,10 +26,10 @@ export default function LeagueTable() {
   // Load all leagues — force-clear loading after 5s in case Firestore is slow
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 5000)
-    const q = query(collection(db, 'leagues'), orderBy('createdAt', 'desc'))
-    const unsub = onSnapshot(q, snap => {
+    const unsub = onSnapshot(collection(db, 'leagues'), snap => {
       clearTimeout(timeout)
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      all.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
       setLeagues(all)
       setSelectedLeague(prev => {
         if (prev && all.find(l => l.id === prev.id)) return all.find(l => l.id === prev.id)
@@ -216,7 +216,7 @@ export default function LeagueTable() {
       {sortedTeams.length > 0 && (
         <>
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '30px 1fr 26px 26px 26px 48px 48px 32px', gap: 4, padding: '0 18px 8px' }}>
+          <div className="league-table-grid" style={{ padding: '0 10px 8px' }}>
             {['#', 'Team', 'P', 'W', 'L', 'Sets', 'PD', ''].map((h, i) => (
               <span key={i} title={['','','Played','Wins','Losses','Sets Won–Lost','Points Difference',''][i]}
                 style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--text-3)', textAlign: i === 1 ? 'left' : 'center' }}>
@@ -244,26 +244,26 @@ export default function LeagueTable() {
 
             return (
               <div key={team.id} className="card" style={{
-                padding: '13px 16px', marginBottom: 8,
+                padding: '11px 10px', marginBottom: 8,
                 border: isSupported ? '1px solid rgba(255,85,0,0.4)' : pos === 1 ? '1px solid #fde68a' : '1px solid var(--border)',
                 background: isSupported ? 'linear-gradient(135deg,#fff8f5 0%,#fff3ee 100%)' : pos === 1 ? '#fffbeb' : 'var(--bg-card)',
               }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '30px 1fr 26px 26px 26px 48px 48px 32px', gap: 4, alignItems: 'center' }}>
+                <div className="league-table-grid">
 
                   {/* Position */}
-                  <div style={{ width: 26, height: 26, borderRadius: '50%', background: currentEventComplete && pos === 1 ? 'linear-gradient(135deg,#b45309,#f59e0b)' : ps.bg || 'var(--bg-elevated)', border: `1px solid ${currentEventComplete && pos === 1 ? '#f59e0b' : ps.border || 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: currentEventComplete && pos === 1 ? '0.85rem' : '0.7rem', fontWeight: 800, color: currentEventComplete && pos === 1 ? '#fff' : ps.color || 'var(--text-3)' }}>
+                  <div style={{ width: 22, height: 22, borderRadius: '50%', background: currentEventComplete && pos === 1 ? 'linear-gradient(135deg,#b45309,#f59e0b)' : ps.bg || 'var(--bg-elevated)', border: `1px solid ${currentEventComplete && pos === 1 ? '#f59e0b' : ps.border || 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: currentEventComplete && pos === 1 ? '0.75rem' : '0.65rem', fontWeight: 800, color: currentEventComplete && pos === 1 ? '#fff' : ps.color || 'var(--text-3)', flexShrink: 0 }}>
                     {currentEventComplete && pos === 1 ? '👑' : pos}
                   </div>
 
                   {/* Team name + logo */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 2, overflow: 'hidden' }}>
+                  <div className="team-name-cell" style={{ paddingLeft: 1 }}>
                     {team.logoUrl ? (
-                      <img src={team.logoUrl} alt={team.name} style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
+                      <img src={team.logoUrl} alt={team.name} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
                     ) : (
-                      <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.9rem' }}>👥</div>
+                      <div style={{ width: 22, height: 22, borderRadius: 5, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.7rem' }}>👥</div>
                     )}
-                    <div style={{ overflow: 'hidden' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.88rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{team.name}</span>
+                    <div style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{team.name}</span>
                       {isSupported && <span style={{ fontSize: '0.6rem', color: 'var(--accent)', fontWeight: 700 }}>My Team</span>}
                     </div>
                   </div>
