@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import ViewerCount from '../components/ViewerCount'
@@ -12,8 +12,10 @@ export default function Home() {
   const [allLeagues, setAllLeagues] = useState([])
 
   useEffect(() => {
-    return onSnapshot(query(collection(db, 'leagues'), orderBy('createdAt', 'desc')), snap => {
-      setAllLeagues(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    return onSnapshot(collection(db, 'leagues'), snap => {
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      all.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+      setAllLeagues(all)
     })
   }, [])
 
@@ -83,7 +85,7 @@ function LiveMatchesSection({ leagues }) {
     if (leagues.length === 0) { setLiveByLeague({}); return }
     const unsubs = leagues.map(league =>
       onSnapshot(
-        query(collection(db, 'leagues', league.id, 'fixtures'), orderBy('date')),
+        collection(db, 'leagues', league.id, 'fixtures'),
         snap => {
           const live = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(f => f.status === 'live')
           setLiveByLeague(prev => ({ ...prev, [league.id]: { fixtures: live, leagueName: league.name } }))
@@ -128,7 +130,16 @@ function LiveMatchesSection({ leagues }) {
               </div>
               <TeamBlock team={f.awayTeam} align="left" />
             </div>
-            <p style={{ textAlign: 'center', fontSize: '0.68rem', color: '#16a34a', fontWeight: 600, marginTop: 6 }}>Tap to watch →</p>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', justifyContent: 'center' }}>
+              <p style={{ fontSize: '0.68rem', color: '#16a34a', fontWeight: 600 }}>Tap to watch scores →</p>
+              {f.liveUrl && (
+                <a href={f.liveUrl} target="_blank" rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#dc2626', fontWeight: 700, fontSize: '0.68rem', textDecoration: 'none', flexShrink: 0 }}>
+                  📺 Watch Live
+                </a>
+              )}
+            </div>
           </div>
         </div>
       ))}
@@ -146,7 +157,7 @@ function LeagueCard({ league }) {
     const u1 = onSnapshot(collection(db, 'leagues', league.id, 'teams'),
       snap => setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
     const u2 = onSnapshot(
-      query(collection(db, 'leagues', league.id, 'fixtures'), orderBy('date')),
+      collection(db, 'leagues', league.id, 'fixtures'),
       snap => setFixtures(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
     return () => { u1(); u2() }
   }, [league.id])

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { doc, onSnapshot, updateDoc, collection, increment, getDocs, query, orderBy } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, collection, increment, getDocs, query } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import ViewerCount from '../components/ViewerCount'
@@ -60,6 +60,7 @@ export default function Scoring() {
   const [showPlayers, setShowPlayers] = useState(false)
   const [busy, setBusy]               = useState(false)
   const [timeoutState, setTimeoutState] = useState(null) // {side, remaining}
+  const [liveUrl, setLiveUrl]         = useState('')
 
   // ── Timeout countdown ─────────────────────────────────
   useEffect(() => {
@@ -190,7 +191,9 @@ export default function Scoring() {
   }
 
 const startMatch = async () => {
-    await save({ status: 'live', sets: [emptySet()], currentSet: 0, homeScore: null, awayScore: null })
+    const updates = { status: 'live', sets: [emptySet()], currentSet: 0, homeScore: null, awayScore: null }
+    if (liveUrl.trim()) updates.liveUrl = liveUrl.trim()
+    await save(updates)
   }
 
   // ── Timeout ───────────────────────────────────────────
@@ -295,10 +298,39 @@ const startMatch = async () => {
 
       {/* Start match */}
       {isAdmin && fixture.status === 'scheduled' && (
-        <button className="btn btn-primary" onClick={startMatch} disabled={busy}
-          style={{ width: '100%', height: 46, fontSize: '0.95rem', marginBottom: 12 }}>
-          ▶ Start Match
-        </button>
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
+            Live Stream URL <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
+          </p>
+          <input
+            type="url"
+            placeholder="https://youtube.com/live/... or any stream link"
+            value={liveUrl}
+            onChange={e => setLiveUrl(e.target.value)}
+            style={{ width: '100%', height: 44, borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', padding: '0 14px', fontSize: '0.85rem', fontFamily: 'inherit', color: 'var(--text-1)', marginBottom: 10, boxSizing: 'border-box', outline: 'none' }}
+          />
+          <button className="btn btn-primary" onClick={startMatch} disabled={busy}
+            style={{ width: '100%', height: 46, fontSize: '0.95rem' }}>
+            ▶ Start Match
+          </button>
+        </div>
+      )}
+
+      {/* Watch Live button — shown when liveUrl is set */}
+      {fixture.liveUrl && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <a href={fixture.liveUrl} target="_blank" rel="noopener noreferrer"
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, height: 44, borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.25)', color: '#dc2626', fontWeight: 700, fontSize: '0.88rem', textDecoration: 'none' }}>
+            📺 Watch Live Stream
+          </a>
+          {isAdmin && isLive && (
+            <button onClick={() => save({ liveUrl: '' })} disabled={busy}
+              title="Remove live link"
+              style={{ width: 44, height: 44, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-elevated)', cursor: 'pointer', fontSize: '1rem' }}>
+              ✕
+            </button>
+          )}
+        </div>
       )}
 
       {/* Sets overview */}
@@ -472,7 +504,7 @@ function TeamActionPanel({ teamName, logoUrl, side, timeoutUsed, subs, reentries
         {logoUrl
           ? <img src={logoUrl} alt={teamName} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
           : <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>👥</span>}
-        <p style={{ fontWeight: 800, fontSize: '0.73rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{teamName}</p>
+        <p className="score-panel-name" style={{ textAlign: 'left' }}>{teamName}</p>
       </div>
 
       <div style={{ padding: '10px 10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -623,7 +655,7 @@ function TeamHeader({ team, right }) {
 function AdminControl({ label, score, leading, onAdd, onSub, busy }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, flex: 1 }}>
-      <p style={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-2)', textAlign: 'center', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{label}</p>
+      <p className="score-panel-name" style={{ color: 'var(--text-2)', fontWeight: 600 }}>{label}</p>
       <button className="btn btn-primary" onClick={onAdd} disabled={busy}
         style={{ width: 58, height: 58, borderRadius: '50%', fontSize: '1.8rem', padding: 0 }}>+</button>
       <span style={{ fontSize: '4rem', fontWeight: 900, lineHeight: 1, color: leading ? 'var(--text-1)' : 'var(--text-3)', letterSpacing: '-3px', fontVariantNumeric: 'tabular-nums', transition: 'color 200ms ease' }}>
@@ -640,7 +672,7 @@ function ReadOnlyScore({ label, score, leading, logo }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1 }}>
       {logo && <img src={logo} alt={label} style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }} />}
-      <p style={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-2)', textAlign: 'center', maxWidth: 110 }}>{label}</p>
+      <p className="score-panel-name" style={{ color: 'var(--text-2)', fontWeight: 600 }}>{label}</p>
       <span style={{ fontSize: '4.5rem', fontWeight: 900, lineHeight: 1, color: leading ? 'var(--text-1)' : 'var(--text-3)', letterSpacing: '-3px', fontVariantNumeric: 'tabular-nums', transition: 'color 200ms ease' }}>
         {score}
       </span>
@@ -699,9 +731,10 @@ function GenericScoring() {
 
   useEffect(() => {
     return onSnapshot(
-      query(collection(db, 'leagues'), orderBy('createdAt', 'desc')),
+      collection(db, 'leagues'),
       snap => {
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        all.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
         setLeagues(all.filter(l => l.status === 'active' || l.status === 'upcoming'))
         setLoading(false)
       }
@@ -712,7 +745,7 @@ function GenericScoring() {
     if (leagues.length === 0) return
     const unsubs = leagues.map(league =>
       onSnapshot(
-        query(collection(db, 'leagues', league.id, 'fixtures'), orderBy('date')),
+        collection(db, 'leagues', league.id, 'fixtures'),
         snap => {
           const live = snap.docs
             .map(d => ({ id: d.id, ...d.data() }))
