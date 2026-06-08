@@ -4,6 +4,7 @@ import { doc, onSnapshot, updateDoc, collection, increment, getDocs, query } fro
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import ViewerCount from '../components/ViewerCount'
+import { useMatchPresence } from '../hooks/useMatchPresence'
 
 // ── Game rules ────────────────────────────────────────────
 const MAX_SETS    = 3
@@ -52,6 +53,8 @@ export default function Scoring() {
   const { leagueId, fixtureId } = useParams()
   const navigate  = useNavigate()
   const { isAdmin } = useAuth()
+
+  useMatchPresence(fixtureId)
 
   const [fixture, setFixture]         = useState(null)
   const [homePlayers, setHomePlayers] = useState([])
@@ -301,7 +304,7 @@ export default function Scoring() {
           </p>
           <h1 className="page-title" style={{ fontSize: '1.15rem' }}>Live Score</h1>
         </div>
-        <ViewerCount />
+        <ViewerCount fixtureId={fixtureId} />
         {isLive && !setWon && <span className="badge badge-live"><span className="live-dot" />Live</span>}
         {isCompleted && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: '0.65rem', fontWeight: 700, background: 'rgba(107,114,128,0.1)', color: '#6b7280', border: '1px solid rgba(107,114,128,0.2)' }}>Full Time</span>}
       </div>

@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { auth } from '../firebase'
 
 // ── Admin credentials — loaded from environment variables ──
 const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USERNAME
@@ -22,35 +21,12 @@ export function AuthProvider({ children }) {
 
   // Listen to Firebase Google auth state
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser)
       setLoading(false)
-
-      if (firebaseUser) {
-        // Register as active viewer in Firestore
-        await setDoc(doc(db, 'viewers', firebaseUser.uid), {
-          uid:       firebaseUser.uid,
-          name:      firebaseUser.displayName,
-          email:     firebaseUser.email,
-          photo:     firebaseUser.photoURL,
-          joinedAt:  serverTimestamp(),
-          lastSeen:  serverTimestamp(),
-        })
-      }
     })
     return unsub
   }, [])
-
-  // Remove viewer on tab close / leave
-  useEffect(() => {
-    const handleUnload = async () => {
-      if (user) {
-        await deleteDoc(doc(db, 'viewers', user.uid))
-      }
-    }
-    window.addEventListener('beforeunload', handleUnload)
-    return () => window.removeEventListener('beforeunload', handleUnload)
-  }, [user])
 
   // ── Admin login ──────────────────────────────────────
   const adminLogin = (username, password) => {
@@ -70,9 +46,6 @@ export function AuthProvider({ children }) {
 
   // ── User (Google) logout ─────────────────────────────
   const userLogout = async () => {
-    if (user) {
-      await deleteDoc(doc(db, 'viewers', user.uid))
-    }
     await signOut(auth)
   }
 

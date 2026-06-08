@@ -3,23 +3,39 @@ import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 
-export default function ViewerCount() {
+const STALE_MS = 45_000 // viewers not seen in 45s are considered gone
+
+export default function ViewerCount({ fixtureId }) {
   const { isAdmin } = useAuth()
-  const [viewers, setViewers] = useState([])
-  const [showList, setShowList] = useState(false)
+  const [viewers, setViewers]     = useState([])
+  const [showList, setShowList]   = useState(false)
+  const [now, setNow]             = useState(Date.now())
+
+  // Refresh "now" every 15s so stale viewers drop off the UI without a full re-fetch
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15_000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'viewers'), snap => {
-      setViewers(snap.docs.map(d => d.data()))
-    })
-    return unsub
-  }, [])
+    if (!fixtureId) return
+    return onSnapshot(
+      collection(db, 'matchPresence', fixtureId, 'viewers'),
+      snap => setViewers(snap.docs.map(d => d.data()))
+    )
+  }, [fixtureId])
+
+  // Only count viewers whose heartbeat arrived within the last 45s
+  const active = viewers.filter(v => {
+    const lastSeen = v.lastSeen?.toMillis?.()
+    return lastSeen && (now - lastSeen) < STALE_MS
+  })
 
   return (
     <>
       <button
         onClick={() => setShowList(v => !v)}
-        aria-label={`${viewers.length} viewers watching`}
+        aria-label={`${active.length} viewers watching`}
         style={{
           display: 'flex', alignItems: 'center', gap: 5,
           background: 'var(--accent-dim)',
@@ -32,11 +48,10 @@ export default function ViewerCount() {
       >
         <EyeIcon />
         <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--accent)' }}>
-          {viewers.length}
+          {active.length}
         </span>
       </button>
 
-      {/* Viewer list modal — admin sees names, others see count only */}
       {showList && (
         <div
           onClick={() => setShowList(false)}
@@ -61,7 +76,7 @@ export default function ViewerCount() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ fontWeight: 800, fontSize: '1rem' }}>
-                👁 {viewers.length} Watching Now
+                👁 {active.length} Watching This Match
               </h3>
               <button
                 onClick={() => setShowList(false)}
@@ -69,17 +84,17 @@ export default function ViewerCount() {
               >✕</button>
             </div>
 
-            {viewers.length === 0 && (
+            {active.length === 0 && (
               <p style={{ color: 'var(--text-2)', fontSize: '0.88rem', textAlign: 'center', padding: '20px 0' }}>
-                No viewers right now.
+                No one watching right now.
               </p>
             )}
 
-            {viewers.map((v, i) => (
-              <div key={v.uid || i} style={{
+            {active.map((v, i) => (
+              <div key={v.sessionKey || i} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 0',
-                borderBottom: i < viewers.length - 1 ? '1px solid var(--border)' : 'none',
+                borderBottom: i < active.length - 1 ? '1px solid var(--border)' : 'none',
               }}>
                 {v.photo ? (
                   <img src={v.photo} alt={v.name} width={36} height={36}
@@ -91,18 +106,13 @@ export default function ViewerCount() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight: 800, fontSize: '0.9rem', color: 'var(--accent)', flexShrink: 0,
                   }}>
-                    {(v.name || v.email || '?')[0].toUpperCase()}
+                    {(v.name || '?')[0].toUpperCase()}
                   </div>
                 )}
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <p style={{ fontWeight: 700, fontSize: '0.88rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {v.name || 'User'}
+                    {v.name || 'Viewer'}
                   </p>
-                  {isAdmin && (
-                    <p style={{ fontSize: '0.72rem', color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {v.email}
-                    </p>
-                  )}
                 </div>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
               </div>

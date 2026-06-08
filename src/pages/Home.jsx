@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import ViewerCount from '../components/ViewerCount'
-
 const EVENT_ICON = { Regu: '👟', Quad: '🏐' }
 
 export default function Home() {
@@ -108,7 +106,6 @@ function LiveMatchesSection({ leagues }) {
         <p style={{ fontSize: '0.72rem', fontWeight: 800, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '1px' }}>
           Matches Going On · {allLive.length}
         </p>
-        <ViewerCount />
       </div>
       {allLive.map(f => (
         <div key={f.id} className="card"
