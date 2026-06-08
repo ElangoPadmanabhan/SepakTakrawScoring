@@ -528,10 +528,10 @@ export default function Scoring() {
           type={subModal.type}
           lineup={fixture.lineup?.[subModal.side] || []}
           teamName={subModal.side === 'home' ? fixture.homeTeam?.name : fixture.awayTeam?.name}
-          onConfirm={(swap) => {
+          onConfirm={async (swap) => {
             const fn = subModal.type === 'sub' ? useSub : useReentry
-            fn(subModal.side)
-            applySwap(subModal.side, swap)
+            await fn(subModal.side)
+            await applySwap(subModal.side, swap)
           }}
           onCancel={() => setSubModal(null)}
         />
@@ -655,7 +655,7 @@ function TeamActionPanel({ teamName, logoUrl, side, timeoutUsed, subs, reentries
               }}>
               <span style={{ fontSize: '1rem' }}>↩️</span>
               {!canReentry
-                ? (reentries >= MAX_REENTRY ? 'Re-entry Used' : 'Use Sub First / No Subs Left')
+                ? (reentries >= MAX_REENTRY ? 'Re-entry Used' : 'Changes Used')
                 : 'Use Re-entry'}
             </button>
           ) : (
@@ -1046,7 +1046,7 @@ function GenericScoring() {
                   <LiveTeamBlock team={f.homeTeam} align="right" />
                   <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, padding: '8px 14px', textAlign: 'center', flexShrink: 0 }}>
                     <p style={{ fontWeight: 900, fontSize: '1.2rem', color: '#16a34a', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                      {f.homeScore ?? 0} – {f.awayScore ?? 0}
+                      {(f.sets || []).filter(s => s.winner === 'home').length} – {(f.sets || []).filter(s => s.winner === 'away').length}
                     </p>
                     <p style={{ fontSize: '0.52rem', color: 'var(--text-3)', fontWeight: 600, marginTop: 3 }}>SETS</p>
                   </div>

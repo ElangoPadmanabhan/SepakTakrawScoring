@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   doc, getDoc, updateDoc, collection,
   addDoc, onSnapshot, deleteDoc, serverTimestamp,
-  getDocs, writeBatch, query, orderBy,
+  getDocs, writeBatch,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '../firebase'
@@ -822,8 +822,11 @@ function FixturesSection({ leagueId, league, teams }) {
   const [collapsed, setCollapsed]   = useState(true)   // existing fixtures list
 
   useEffect(() => {
-    const q = query(collection(db, 'leagues', leagueId, 'fixtures'), orderBy('date'))
-    return onSnapshot(q, snap => setExisting(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    return onSnapshot(collection(db, 'leagues', leagueId, 'fixtures'), snap => {
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      all.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      setExisting(all)
+    })
   }, [leagueId])
 
   const events = league.events || []
