@@ -3,7 +3,7 @@ import Spinner from '../components/Spinner'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   collection, addDoc, onSnapshot, doc,
-  updateDoc, deleteDoc, getDocs, serverTimestamp, query, orderBy,
+  updateDoc, deleteDoc, getDocs, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 
@@ -23,8 +23,11 @@ export default function ManageLeagues() {
 
   // Live leagues from Firestore
   useEffect(() => {
-    const q = query(collection(db, 'leagues'), orderBy('createdAt', 'desc'))
-    return onSnapshot(q, snap => setLeagues(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    return onSnapshot(collection(db, 'leagues'), snap => {
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      all.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+      setLeagues(all)
+    })
   }, [])
 
   const toggleEvent = (event) => {

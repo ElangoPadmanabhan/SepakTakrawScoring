@@ -1,23 +1,42 @@
-import { useEffect, useState } from 'react'
-import { useRegisterSW } from 'virtual:pwa-register/react'
+import { useEffect, useRef, useState } from 'react'
+
+const VERSION_URL = `${import.meta.env.BASE_URL}version.json`
+const POLL_INTERVAL = 60_000
+
+async function fetchVersion() {
+  try {
+    const res = await fetch(VERSION_URL + '?t=' + Date.now(), { cache: 'no-store' })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.v || null
+  } catch {
+    return null
+  }
+}
 
 export default function UpdateBanner() {
-  const {
-    needRefresh: [needRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegistered(r) {
-      // Poll every 60 seconds for new version
-      r && setInterval(() => r.update(), 60_000)
-    },
-  })
+  const [showBanner, setShowBanner] = useState(false)
+  const loadedVersion = useRef(null)
 
-  if (!needRefresh) return null
+  useEffect(() => {
+    fetchVersion().then(v => { loadedVersion.current = v })
+
+    const id = setInterval(async () => {
+      const latest = await fetchVersion()
+      if (latest && loadedVersion.current && latest !== loadedVersion.current) {
+        setShowBanner(true)
+      }
+    }, POLL_INTERVAL)
+
+    return () => clearInterval(id)
+  }, [])
+
+  if (!showBanner) return null
 
   return (
     <div style={{
       position: 'fixed',
-      bottom: 80,   // above the navbar
+      bottom: 80,
       left: 16,
       right: 16,
       zIndex: 9999,
@@ -40,7 +59,7 @@ export default function UpdateBanner() {
         </div>
       </div>
       <button
-        onClick={() => updateServiceWorker(true)}
+        onClick={() => window.location.reload()}
         style={{
           background: '#ff5500',
           color: '#fff',

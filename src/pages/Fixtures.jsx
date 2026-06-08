@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useSupportedTeam } from '../hooks/useSupportedTeam'
@@ -30,9 +30,10 @@ export default function Fixtures() {
   // Load leagues — force-clear loading after 5s in case Firestore is slow
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 5000)
-    const unsub = onSnapshot(query(collection(db, 'leagues'), orderBy('createdAt', 'desc')), snap => {
+    const unsub = onSnapshot(collection(db, 'leagues'), snap => {
       clearTimeout(timeout)
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      all.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
       setLeagues(all)
       setSelectedLeague(prev => {
         if (prev && all.find(l => l.id === prev.id)) return all.find(l => l.id === prev.id)
@@ -49,8 +50,12 @@ export default function Fixtures() {
   useEffect(() => {
     if (!selectedLeague) { setFixtures([]); return }
     return onSnapshot(
-      query(collection(db, 'leagues', selectedLeague.id, 'fixtures'), orderBy('date')),
-      snap => setFixtures(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      collection(db, 'leagues', selectedLeague.id, 'fixtures'),
+      snap => {
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        all.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+        setFixtures(all)
+      }
     )
   }, [selectedLeague?.id])
 
@@ -227,7 +232,7 @@ function ResultsTable({ fixtures, supportedTeam, leagueId }) {
           {/* Table card */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             {/* Column headers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 56px 1fr 64px', gap: 0, padding: '7px 14px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+            <div className="fixture-header" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
               <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Home</span>
               <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>Score</span>
               <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', paddingRight: 8 }}>Away</span>
@@ -244,19 +249,20 @@ function ResultsTable({ fixtures, supportedTeam, leagueId }) {
               return (
                 <div key={f.id}
                   onClick={() => leagueId && navigate(`/scoring/${leagueId}/${f.id}`)}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 56px 1fr 64px', gap: 0, padding: '11px 14px', borderBottom: isLast ? 'none' : '1px solid var(--border)', cursor: 'pointer', background: isMyMatch ? 'rgba(255,85,0,0.03)' : 'transparent', transition: 'background 120ms ease' }}
+                  className="fixture-row"
+                  style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)', cursor: 'pointer', background: isMyMatch ? 'rgba(255,85,0,0.03)' : 'transparent', transition: 'background 120ms ease' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
                   onMouseLeave={e => e.currentTarget.style.background = isMyMatch ? 'rgba(255,85,0,0.03)' : 'transparent'}>
 
                   {/* Home team */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                  <div className="team-name-cell">
                     {f.homeTeam?.logoUrl
-                      ? <img src={f.homeTeam.logoUrl} alt={f.homeTeam.name} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
-                      : <div style={{ width: 22, height: 22, borderRadius: 5, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', flexShrink: 0 }}>👥</div>}
-                    <span style={{ fontWeight: homeWon ? 800 : 600, fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: homeWon ? 'var(--text-1)' : 'var(--text-2)' }}>
+                      ? <img src={f.homeTeam.logoUrl} alt={f.homeTeam.name} style={{ width: 20, height: 20, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+                      : <div style={{ width: 20, height: 20, borderRadius: 5, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', flexShrink: 0 }}>👥</div>}
+                    <span className="team-name-text" style={{ fontWeight: homeWon ? 800 : 600, color: homeWon ? 'var(--text-1)' : 'var(--text-2)' }}>
                       {f.homeTeam?.name}
                     </span>
-                    {homeWon && <span style={{ fontSize: '0.65rem', flexShrink: 0 }}>🏆</span>}
+                    {homeWon && <span style={{ fontSize: '0.6rem', flexShrink: 0 }}>🏆</span>}
                   </div>
 
                   {/* Score */}
@@ -271,14 +277,14 @@ function ResultsTable({ fixtures, supportedTeam, leagueId }) {
                   </div>
 
                   {/* Away team */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, overflow: 'hidden' }}>
-                    {awayWon && <span style={{ fontSize: '0.65rem', flexShrink: 0 }}>🏆</span>}
-                    <span style={{ fontWeight: awayWon ? 800 : 600, fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', color: awayWon ? 'var(--text-1)' : 'var(--text-2)' }}>
+                  <div className="team-name-cell" style={{ justifyContent: 'flex-end' }}>
+                    {awayWon && <span style={{ fontSize: '0.6rem', flexShrink: 0 }}>🏆</span>}
+                    <span className="team-name-text" style={{ fontWeight: awayWon ? 800 : 600, textAlign: 'right', color: awayWon ? 'var(--text-1)' : 'var(--text-2)' }}>
                       {f.awayTeam?.name}
                     </span>
                     {f.awayTeam?.logoUrl
-                      ? <img src={f.awayTeam.logoUrl} alt={f.awayTeam.name} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
-                      : <div style={{ width: 22, height: 22, borderRadius: 5, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', flexShrink: 0 }}>👥</div>}
+                      ? <img src={f.awayTeam.logoUrl} alt={f.awayTeam.name} style={{ width: 20, height: 20, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+                      : <div style={{ width: 20, height: 20, borderRadius: 5, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', flexShrink: 0 }}>👥</div>}
                   </div>
 
                   {/* Event badge */}
