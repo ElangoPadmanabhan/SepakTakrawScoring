@@ -45,12 +45,11 @@ const USER_TABS = [
 ]
 
 const ADMIN_TABS = [
-  { path: '/',               label: 'Home',     Icon: HomeIcon     },
-  { path: '/scoring',        label: 'Score',    Icon: ScoreIcon    },
-  { path: '/table',          label: 'Table',    Icon: TableIcon    },
-  { path: '/fixtures',       label: 'Fixtures', Icon: FixturesIcon },
-  { path: '/teams',          label: 'Teams',    Icon: TeamsIcon    },
-  { path: '/admin/leagues',  label: 'Leagues',  Icon: LeaguesIcon  },
+  { path: '/',         label: 'Home',     Icon: HomeIcon     },
+  { path: '/scoring',  label: 'Score',    Icon: ScoreIcon    },
+  { path: '/table',    label: 'Table',    Icon: TableIcon    },
+  { path: '/fixtures', label: 'Fixtures', Icon: FixturesIcon },
+  { path: '/teams',    label: 'Teams',    Icon: TeamsIcon    },
 ]
 
 export default function Navbar() {

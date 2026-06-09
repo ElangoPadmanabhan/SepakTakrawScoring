@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
+import { useAuth } from '../context/AuthContext'
 import TeamSheet from '../components/TeamSheet'
 
 export default function Teams() {
+  const { isAdmin } = useAuth()
+  const navigate = useNavigate()
   const [leagues, setLeagues]               = useState([])
   const [selectedLeague, setSelectedLeague] = useState(null)
   const [teams, setTeams]                   = useState([])
@@ -73,6 +77,22 @@ export default function Teams() {
           <p className="page-subtitle">{selectedLeague?.name || 'Chennai Sepak Takraw'}</p>
           <h1 className="page-title">Teams</h1>
         </div>
+        {isAdmin && (
+          <button
+            onClick={() => navigate('/admin/leagues')}
+            style={{
+              height: 36, padding: '0 14px', borderRadius: 10,
+              background: 'rgba(255,85,0,0.08)', border: '1px solid rgba(255,85,0,0.2)',
+              color: 'var(--accent)', fontFamily: 'inherit', fontWeight: 700,
+              fontSize: '0.78rem', cursor: 'pointer', display: 'flex',
+              alignItems: 'center', gap: 6, flexShrink: 0,
+            }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Manage
+          </button>
+        )}
       </div>
 
       {/* League switcher */}
