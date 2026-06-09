@@ -60,21 +60,25 @@ export default function Scoring() {
   const [homePlayers, setHomePlayers] = useState([])
   const [awayPlayers, setAwayPlayers] = useState([])
   const [loading, setLoading]         = useState(!!fixtureId)
-  const [showPlayers, setShowPlayers] = useState(false)
   const [busy, setBusy]               = useState(false)
   const [timeoutState, setTimeoutState] = useState(null)
   const [liveUrl, setLiveUrl]         = useState('')
   // lineup picker (before start)
   const [homeStarting, setHomeStarting] = useState([]) // playerIds selected as starting
   const [awayStarting, setAwayStarting] = useState([])
-  const [showLineupPicker, setShowLineupPicker] = useState(false)
+  const [showLineupPicker, setShowLineupPicker] = useState(true)
   // sub/re-entry modal
   const [subModal, setSubModal] = useState(null) // { side, type: 'sub'|'reentry' }
 
   // ── Timeout countdown ─────────────────────────────────
   useEffect(() => {
     if (!timeoutState) return
-    if (timeoutState.remaining <= 0) { setTimeoutState(null); return }
+    if (timeoutState.remaining <= 0) {
+      setTimeoutState(null)
+      // Clear from Firestore so viewers stop seeing it
+      save({ timeoutActive: null })
+      return
+    }
     const id = setTimeout(() =>
       setTimeoutState(prev => prev ? { ...prev, remaining: prev.remaining - 1 } : null)
     , 1000)
@@ -202,24 +206,25 @@ export default function Scoring() {
   const buildLineup = (allPlayers, startingIds) =>
     allPlayers.map(p => ({ id: p.id, name: p.name, role: p.role || 'Player', position: p.position || null, photoUrl: p.photoUrl || null, status: startingIds.includes(p.id) ? 'playing' : 'bench' }))
 
+  const lineupReady = homeStarting.length > 0 && awayStarting.length > 0
+
   const startMatch = async () => {
+    if (!lineupReady) return
     const updates = { status: 'live', sets: [emptySet()], currentSet: 0, homeScore: null, awayScore: null }
     if (liveUrl.trim()) updates.liveUrl = liveUrl.trim()
-    if (homeStarting.length > 0 || awayStarting.length > 0) {
-      updates.lineup = {
-        home: buildLineup(homePlayers, homeStarting),
-        away: buildLineup(awayPlayers, awayStarting),
-      }
+    updates.lineup = {
+      home: buildLineup(homePlayers, homeStarting),
+      away: buildLineup(awayPlayers, awayStarting),
     }
     await save(updates)
   }
 
   // Called from SubReentryModal with { outId, inId }
-  const applySwap = async (side, { outId, inId }) => {
+  const applySwap = async (side, { outId, inId }, type) => {
     const lineup = fixture.lineup || { home: [], away: [] }
     const updated = { ...lineup, [side]: lineup[side].map(p => {
-      if (p.id === outId) return { ...p, status: 'bench' }
-      if (p.id === inId)  return { ...p, status: 'playing' }
+      if (p.id === outId) return { ...p, status: 'bench',   event: 'subOut'             }
+      if (p.id === inId)  return { ...p, status: 'playing', event: type === 'reentry' ? 'reentry' : 'subIn' }
       return p
     })}
     await save({ lineup: updated })
@@ -231,7 +236,7 @@ export default function Scoring() {
     const sets = fixture.sets.map((s, i) =>
       i === fixture.currentSet ? { ...s, [`${side}Timeout`]: true } : s
     )
-    await save({ sets })
+    await save({ sets, timeoutActive: { side, startedAt: Date.now() } })
     setTimeoutState({ side, remaining: TIMEOUT_SEC })
   }
 
@@ -284,12 +289,21 @@ export default function Scoring() {
   return (
     <div className="page" style={{ paddingBottom: 100 }}>
 
-      {/* Timeout overlay */}
-      {timeoutState && (
+      {/* Timeout overlay — admin full screen */}
+      {timeoutState && isAdmin && (
         <TimeoutOverlay
           remaining={timeoutState.remaining}
           teamName={timeoutState.side === 'home' ? fixture.homeTeam?.name : fixture.awayTeam?.name}
-          onDismiss={() => setTimeoutState(null)}
+          onDismiss={() => { setTimeoutState(null); save({ timeoutActive: null }) }}
+        />
+      )}
+
+      {/* Timeout pill — viewer floating widget */}
+      {!isAdmin && fixture?.timeoutActive && (
+        <ViewerTimeoutPill
+          timeoutActive={fixture.timeoutActive}
+          homeTeam={fixture.homeTeam?.name}
+          awayTeam={fixture.awayTeam?.name}
         />
       )}
 
@@ -341,14 +355,19 @@ export default function Scoring() {
             style={{ width: '100%', height: 44, borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', padding: '0 14px', fontSize: '0.85rem', fontFamily: 'inherit', color: 'var(--text-1)', marginBottom: 12, boxSizing: 'border-box', outline: 'none' }}
           />
 
-          {/* Lineup picker toggle */}
-          <button
-            onClick={() => setShowLineupPicker(v => !v)}
-            style={{ width: '100%', height: 42, borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-elevated)', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-1)', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            👕 {showLineupPicker ? 'Hide Lineup Picker' : 'Set Starting Lineup (optional)'}
-          </button>
-
-          {showLineupPicker && (
+          {/* Lineup picker — mandatory */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                👕 Starting Lineup <span style={{ color: '#dc2626' }}>*</span>
+              </p>
+              {!lineupReady && (
+                <span style={{ fontSize: '0.65rem', color: '#dc2626', fontWeight: 600 }}>Required to start</span>
+              )}
+              {lineupReady && (
+                <span style={{ fontSize: '0.65rem', color: '#16a34a', fontWeight: 700 }}>✓ Ready</span>
+              )}
+            </div>
             <LineupPicker
               event={fixture.event}
               homeTeam={fixture.homeTeam} homePlayers={homePlayers}
@@ -356,10 +375,10 @@ export default function Scoring() {
               homeStarting={homeStarting} setHomeStarting={setHomeStarting}
               awayStarting={awayStarting} setAwayStarting={setAwayStarting}
             />
-          )}
+          </div>
 
-          <button className="btn btn-primary" onClick={startMatch} disabled={busy}
-            style={{ width: '100%', height: 46, fontSize: '0.95rem' }}>
+          <button className="btn btn-primary" onClick={startMatch} disabled={busy || !lineupReady}
+            style={{ width: '100%', height: 46, fontSize: '0.95rem', opacity: lineupReady ? 1 : 0.45, cursor: lineupReady ? 'pointer' : 'not-allowed' }}>
             ▶ Start Match
           </button>
         </div>
@@ -512,18 +531,6 @@ export default function Scoring() {
         <LineupDisplay lineup={fixture.lineup} homeTeam={fixture.homeTeam} awayTeam={fixture.awayTeam} />
       )}
 
-      {/* Players panel */}
-      <button className="btn btn-secondary" onClick={() => setShowPlayers(v => !v)}
-        style={{ width: '100%', height: 42, fontSize: '0.85rem', gap: 8, marginBottom: 12 }}>
-        <PlayersIcon />
-        {showPlayers ? 'Hide Players' : 'View Players'}
-      </button>
-      {showPlayers && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-          <PlayersList team={fixture.homeTeam} players={homePlayers} />
-          <PlayersList team={fixture.awayTeam} players={awayPlayers} />
-        </div>
-      )}
 
       {/* ── Sub / Re-entry modal ── */}
       {subModal && (
@@ -534,7 +541,7 @@ export default function Scoring() {
           onConfirm={async (swap) => {
             const fn = subModal.type === 'sub' ? useSub : useReentry
             await fn(subModal.side)
-            await applySwap(subModal.side, swap)
+            await applySwap(subModal.side, swap, subModal.type)
           }}
           onCancel={() => setSubModal(null)}
         />
@@ -946,8 +953,12 @@ function LineupDisplay({ lineup, homeTeam, awayTeam }) {
             {/* Playing */}
             {playing.map(p => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,85,0,0.1)', border: '1.5px solid rgba(255,85,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.6rem', color: 'var(--accent)', flexShrink: 0 }}>
-                  {p.name[0]?.toUpperCase()}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,85,0,0.1)', border: '1.5px solid rgba(255,85,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.6rem', color: 'var(--accent)' }}>
+                    {p.name[0]?.toUpperCase()}
+                  </div>
+                  {p.event === 'subIn'   && <span style={{ position: 'absolute', bottom: -4, right: -4, fontSize: '0.6rem', lineHeight: 1 }}>🟢</span>}
+                  {p.event === 'reentry' && <span style={{ position: 'absolute', bottom: -4, right: -4, fontSize: '0.6rem', lineHeight: 1 }}>↩️</span>}
                 </div>
                 <div style={{ overflow: 'hidden', minWidth: 0 }}>
                   <p style={{ fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
@@ -961,11 +972,14 @@ function LineupDisplay({ lineup, homeTeam, awayTeam }) {
               <>
                 <p style={{ fontSize: '0.55rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 8, marginBottom: 4 }}>Bench</p>
                 {bench.map(p => (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, opacity: 0.6 }}>
-                    <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.55rem', color: 'var(--text-3)', flexShrink: 0 }}>
-                      {p.name[0]?.toUpperCase()}
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, opacity: p.event === 'subOut' ? 1 : 0.5 }}>
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.55rem', color: 'var(--text-3)' }}>
+                        {p.name[0]?.toUpperCase()}
+                      </div>
+                      {p.event === 'subOut' && <span style={{ position: 'absolute', bottom: -4, right: -4, fontSize: '0.6rem', lineHeight: 1 }}>🔴</span>}
                     </div>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
+                    <p style={{ fontSize: '0.68rem', color: p.event === 'subOut' ? 'var(--text-1)' : 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: p.event === 'subOut' ? 600 : 400 }}>{p.name}</p>
                   </div>
                 ))}
               </>
@@ -1075,6 +1089,53 @@ function GenericScoring() {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function ViewerTimeoutPill({ timeoutActive, homeTeam, awayTeam }) {
+  const [remaining, setRemaining] = useState(null)
+
+  useEffect(() => {
+    if (!timeoutActive?.startedAt) return
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - timeoutActive.startedAt) / 1000)
+      const left = Math.max(0, TIMEOUT_SEC - elapsed)
+      setRemaining(left)
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [timeoutActive?.startedAt])
+
+  if (remaining === null || remaining <= 0) return null
+
+  const teamName = timeoutActive.side === 'home' ? homeTeam : awayTeam
+  const pct = (remaining / TIMEOUT_SEC) * 100
+
+  return (
+    <div style={{
+      position: 'fixed', top: 72, right: 12, zIndex: 200,
+      background: '#1a1a2e', borderRadius: 14,
+      padding: '8px 12px', minWidth: 120,
+      boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+      border: '1px solid rgba(245,158,11,0.35)',
+      animation: 'slideDown 250ms ease',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+        <span style={{ fontSize: '0.8rem' }}>⏱</span>
+        <div>
+          <p style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Timeout</p>
+          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#f59e0b', whiteSpace: 'nowrap', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis' }}>{teamName}</p>
+        </div>
+      </div>
+      {/* Progress bar */}
+      <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pct}%`, background: pct > 30 ? '#f59e0b' : '#ef4444', borderRadius: 2, transition: 'width 1s linear' }} />
+      </div>
+      <p style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.1rem', color: pct > 30 ? '#f59e0b' : '#ef4444', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
+        {remaining}s
+      </p>
     </div>
   )
 }
