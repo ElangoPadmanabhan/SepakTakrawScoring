@@ -9,6 +9,7 @@ import LeagueTable from './pages/LeagueTable'
 import Fixtures from './pages/Fixtures'
 import ManageLeagues from './pages/ManageLeagues'
 import LeagueDetail from './pages/LeagueDetail'
+import Teams from './pages/Teams'
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { user, isAdmin, loading } = useAuth()
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="/scoring/:leagueId/:fixtureId"          element={<ProtectedRoute><Scoring /></ProtectedRoute>} />
         <Route path="/table"          element={<ProtectedRoute><LeagueTable /></ProtectedRoute>} />
         <Route path="/fixtures"       element={<ProtectedRoute><Fixtures /></ProtectedRoute>} />
+        <Route path="/teams"          element={<ProtectedRoute><Teams /></ProtectedRoute>} />
         <Route path="/admin/leagues"           element={<ProtectedRoute adminOnly><ManageLeagues /></ProtectedRoute>} />
         <Route path="/admin/leagues/:leagueId" element={<ProtectedRoute adminOnly><LeagueDetail /></ProtectedRoute>} />
         <Route path="*"               element={<Navigate to="/" replace />} />
