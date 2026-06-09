@@ -16,12 +16,13 @@ export default function LeagueTable() {
   const { isAdmin } = useAuth()
   const { supportedTeam, supportTeam } = useSupportedTeam()
 
-  const [leagues, setLeagues]       = useState([])
+  const [leagues, setLeagues]         = useState([])
   const [selectedLeague, setSelectedLeague] = useState(null)
-  const [teams, setTeams]           = useState([])
-  const [fixtures, setFixtures]     = useState([])
+  const [teams, setTeams]             = useState([])
+  const [fixtures, setFixtures]       = useState([])
   const [activeEvent, setActiveEvent] = useState(null)
-  const [loading, setLoading]       = useState(true)
+  const [loading, setLoading]         = useState(true)
+  const [supportCounts, setSupportCounts] = useState({}) // { teamId: count }
 
   // Load all leagues — force-clear loading after 5s in case Firestore is slow
   useEffect(() => {
@@ -70,6 +71,18 @@ export default function LeagueTable() {
       snap => setFixtures(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     )
   }, [selectedLeague?.id])
+
+  // Live supporter counts from userTeams collection
+  useEffect(() => {
+    return onSnapshot(collection(db, 'userTeams'), snap => {
+      const counts = {}
+      snap.docs.forEach(d => {
+        const teamId = d.data().teamId
+        if (teamId) counts[teamId] = (counts[teamId] || 0) + 1
+      })
+      setSupportCounts(counts)
+    })
+  }, [])
 
   const events = selectedLeague?.events || []
   const showEventTabs = events.length > 1
@@ -283,16 +296,25 @@ export default function LeagueTable() {
                     {pdStr}
                   </span>
 
-                  {/* Heart — users only */}
-                  {!isAdmin ? (
-                    <button onClick={() => supportTeam(team.id)} aria-label={isSupported ? `Unsupport ${team.name}` : `Support ${team.name}`}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', transition: 'transform 150ms ease' }}
-                      onMouseDown={e => e.currentTarget.style.transform = 'scale(0.85)'}
-                      onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-                      onTouchEnd={e => e.currentTarget.style.transform = 'scale(1)'}>
-                      <HeartIcon filled={isSupported} />
-                    </button>
-                  ) : <span />}
+                  {/* Heart + count */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                    {!isAdmin ? (
+                      <button onClick={() => supportTeam(team.id)} aria-label={isSupported ? `Unsupport ${team.name}` : `Support ${team.name}`}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', transition: 'transform 150ms ease', padding: 0 }}
+                        onMouseDown={e => e.currentTarget.style.transform = 'scale(0.85)'}
+                        onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                        onTouchEnd={e => e.currentTarget.style.transform = 'scale(1)'}>
+                        <HeartIcon filled={isSupported} />
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: '0.85rem' }}>❤️</span>
+                    )}
+                    {(supportCounts[team.id] || 0) > 0 && (
+                      <span style={{ fontSize: '0.58rem', fontWeight: 800, color: isSupported ? 'var(--accent)' : 'var(--text-3)', lineHeight: 1 }}>
+                        {supportCounts[team.id]}
+                      </span>
+                    )}
+                  </div>
 
                 </div>
               </div>
