@@ -743,7 +743,27 @@ function buildRoundRobin(teams) {
   return rounds
 }
 
-// Returns [{date, matches:[{event,leg,home,away}]}] — one entry per Sunday
+// Reorder matches on a single day so no team plays back-to-back.
+// Greedy: for each slot, pick a match where neither team played the previous match.
+function scheduleDay(matches) {
+  const remaining = [...matches]
+  const ordered   = []
+  let lastTeams   = new Set()
+
+  while (remaining.length > 0) {
+    const idx = remaining.findIndex(
+      m => !lastTeams.has(m.home.id) && !lastTeams.has(m.away.id)
+    )
+    const pick = idx >= 0 ? remaining.splice(idx, 1)[0] : remaining.shift()
+    ordered.push(pick)
+    lastTeams = new Set([pick.home.id, pick.away.id])
+  }
+  return ordered
+}
+
+// Returns [{date, matches:[{event,leg,home,away}]}] — one entry per Sunday.
+// Both Regu and Quad are on the SAME Sunday each week (each team plays once per event).
+// Within the day the match order is rearranged so no team plays two consecutive matches.
 function generateFixtures(teams, events, startDate) {
   if (teams.length < 2 || !events.length || !startDate) return []
 
@@ -776,32 +796,28 @@ function generateFixtures(teams, events, startDate) {
     ]
   }
 
-  // ── Both events: offset pairing so Regu ≠ Quad opponent ─
-  // Sunday i → Regu uses leg1[i], Quad uses leg1[(i+1)%N1]
-  // This works because any two DIFFERENT rounds in a round-robin
-  // share zero common pairs, guaranteeing different opponents.
+  // ── Both events on the SAME Sunday ──────────────────────
+  // Regu uses leg[i], Quad uses leg[(i+1)%N1] so opponents differ.
+  // Then scheduleDay() reorders the combined match list to ensure
+  // no team appears in two consecutive match slots on that day.
   const sundays = []
 
-  // First-leg phase (N1 Sundays)
+  // Leg 1
   for (let i = 0; i < N1; i++) {
-    sundays.push({
-      date: sunday(i),
-      matches: [
-        ...leg1[i].map(m => ({ event: 'Regu', leg: 1, home: m.home, away: m.away })),
-        ...leg1[(i + 1) % N1].map(m => ({ event: 'Quad', leg: 1, home: m.home, away: m.away })),
-      ],
-    })
+    const raw = [
+      ...leg1[i].map(m => ({ event: 'Regu', leg: 1, home: m.home, away: m.away })),
+      ...leg1[(i + 1) % N1].map(m => ({ event: 'Quad', leg: 1, home: m.home, away: m.away })),
+    ]
+    sundays.push({ date: sunday(i), matches: scheduleDay(raw) })
   }
 
-  // Second-leg phase (N1 more Sundays)
+  // Leg 2
   for (let i = 0; i < N1; i++) {
-    sundays.push({
-      date: sunday(N1 + i),
-      matches: [
-        ...leg2[i].map(m => ({ event: 'Regu', leg: 2, home: m.home, away: m.away })),
-        ...leg2[(i + 1) % N1].map(m => ({ event: 'Quad', leg: 2, home: m.home, away: m.away })),
-      ],
-    })
+    const raw = [
+      ...leg2[i].map(m => ({ event: 'Regu', leg: 2, home: m.home, away: m.away })),
+      ...leg2[(i + 1) % N1].map(m => ({ event: 'Quad', leg: 2, home: m.home, away: m.away })),
+    ]
+    sundays.push({ date: sunday(N1 + i), matches: scheduleDay(raw) })
   }
 
   return sundays
