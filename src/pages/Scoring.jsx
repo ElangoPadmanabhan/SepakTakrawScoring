@@ -146,33 +146,41 @@ export default function Scoring() {
       const totalHome = sets.reduce((sum, s) => sum + (s.home || 0), 0)
       const totalAway = sets.reduce((sum, s) => sum + (s.away || 0), 0)
       const homeWon   = sH >= SETS_TO_WIN
+      const ev        = fixture.event // 'Regu' | 'Quad' | etc.
+
+      // Helper: build event-namespaced stat update
+      const homeStats = ev ? {
+        [`eventStats.${ev}.p`]:          increment(1),
+        [`eventStats.${ev}.w`]:          increment(homeWon ? 1 : 0),
+        [`eventStats.${ev}.l`]:          increment(homeWon ? 0 : 1),
+        [`eventStats.${ev}.pts`]:        increment(homeWon ? 2 : 0),
+        [`eventStats.${ev}.setsWon`]:    increment(sH),
+        [`eventStats.${ev}.setsLost`]:   increment(sA),
+        [`eventStats.${ev}.ptsFor`]:     increment(totalHome),
+        [`eventStats.${ev}.ptsAgainst`]: increment(totalAway),
+      } : {}
+
+      const awayStats = ev ? {
+        [`eventStats.${ev}.p`]:          increment(1),
+        [`eventStats.${ev}.w`]:          increment(homeWon ? 0 : 1),
+        [`eventStats.${ev}.l`]:          increment(homeWon ? 1 : 0),
+        [`eventStats.${ev}.pts`]:        increment(homeWon ? 0 : 2),
+        [`eventStats.${ev}.setsWon`]:    increment(sA),
+        [`eventStats.${ev}.setsLost`]:   increment(sH),
+        [`eventStats.${ev}.ptsFor`]:     increment(totalAway),
+        [`eventStats.${ev}.ptsAgainst`]: increment(totalHome),
+      } : {}
 
       // Update home team stats
       await updateDoc(
-        doc(db, 'leagues', leagueId, 'teams', fixture.homeTeam.id), {
-          p:           increment(1),
-          w:           increment(homeWon ? 1 : 0),
-          l:           increment(homeWon ? 0 : 1),
-          pts:         increment(homeWon ? 2 : 0),
-          setsWon:     increment(sH),
-          setsLost:    increment(sA),
-          ptsFor:      increment(totalHome),
-          ptsAgainst:  increment(totalAway),
-        }
+        doc(db, 'leagues', leagueId, 'teams', fixture.homeTeam.id),
+        homeStats
       )
 
       // Update away team stats
       await updateDoc(
-        doc(db, 'leagues', leagueId, 'teams', fixture.awayTeam.id), {
-          p:           increment(1),
-          w:           increment(homeWon ? 0 : 1),
-          l:           increment(homeWon ? 1 : 0),
-          pts:         increment(homeWon ? 0 : 2),
-          setsWon:     increment(sA),
-          setsLost:    increment(sH),
-          ptsFor:      increment(totalAway),
-          ptsAgainst:  increment(totalHome),
-        }
+        doc(db, 'leagues', leagueId, 'teams', fixture.awayTeam.id),
+        awayStats
       )
 
       // Check if ALL fixtures in league are now completed → auto-complete league

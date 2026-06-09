@@ -87,12 +87,28 @@ export default function LeagueTable() {
   const events = selectedLeague?.events || []
   const showEventTabs = events.length > 1
 
+  // Read event-specific stats for a team
+  const getStats = (team) => {
+    const s = activeEvent ? (team.eventStats?.[activeEvent] || {}) : {}
+    return {
+      p:          s.p          || 0,
+      w:          s.w          || 0,
+      l:          s.l          || 0,
+      pts:        s.pts        || 0,
+      setsWon:    s.setsWon    || 0,
+      setsLost:   s.setsLost   || 0,
+      ptsFor:     s.ptsFor     || 0,
+      ptsAgainst: s.ptsAgainst || 0,
+    }
+  }
+
   // Sort: league pts → wins → sets diff → points diff
   const sortedTeams = [...teams].sort((a, b) => {
-    const ptsDiff = (b.pts || 0) - (a.pts || 0); if (ptsDiff !== 0) return ptsDiff
-    const wDiff   = (b.w || 0) - (a.w || 0);     if (wDiff   !== 0) return wDiff
-    const sDiff   = ((b.setsWon || 0) - (b.setsLost || 0)) - ((a.setsWon || 0) - (a.setsLost || 0)); if (sDiff !== 0) return sDiff
-    return ((b.ptsFor || 0) - (b.ptsAgainst || 0)) - ((a.ptsFor || 0) - (a.ptsAgainst || 0))
+    const sa = getStats(a), sb = getStats(b)
+    const ptsDiff = sb.pts - sa.pts;                           if (ptsDiff !== 0) return ptsDiff
+    const wDiff   = sb.w   - sa.w;                            if (wDiff   !== 0) return wDiff
+    const sDiff   = (sb.setsWon - sb.setsLost) - (sa.setsWon - sa.setsLost); if (sDiff !== 0) return sDiff
+    return (sb.ptsFor - sb.ptsAgainst) - (sa.ptsFor - sa.ptsAgainst)
   })
 
   // Determine if all matches for each event are done → reveal winner
@@ -244,14 +260,7 @@ export default function LeagueTable() {
             const ps  = POS_STYLE[pos] || {}
             const isSupported = supportedTeam === team.id
 
-            const p        = team.p        || 0
-            const w        = team.w        || 0
-            const l        = team.l        || 0
-            const pts      = team.pts      || 0
-            const setsWon  = team.setsWon  || 0
-            const setsLost = team.setsLost || 0
-            const ptsFor   = team.ptsFor   || 0
-            const ptsAgainst = team.ptsAgainst || 0
+            const { p, w, l, pts, setsWon, setsLost, ptsFor, ptsAgainst } = getStats(team)
             const pd       = ptsFor - ptsAgainst
             const netSets  = setsWon - setsLost
             const setsStr  = netSets > 0 ? `+${netSets}` : `${netSets}`
