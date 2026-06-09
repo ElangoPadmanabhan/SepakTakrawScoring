@@ -232,13 +232,13 @@ body {
 /* ─── League Table responsive grid ─── */
 .league-table-grid {
   display: grid;
-  grid-template-columns: 22px 1fr 18px 18px 18px 34px 34px 26px;
+  grid-template-columns: 22px 1fr 18px 18px 18px 30px 30px 28px 26px;
   gap: 3px;
   align-items: center;
 }
 @media (max-width: 374px) {
   .league-table-grid {
-    grid-template-columns: 20px 1fr 16px 16px 16px 30px 30px 24px;
+    grid-template-columns: 20px 1fr 16px 16px 16px 26px 26px 24px 22px;
     gap: 2px;
   }
 }

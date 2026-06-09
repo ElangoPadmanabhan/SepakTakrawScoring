@@ -87,10 +87,11 @@ export default function LeagueTable() {
   const events = selectedLeague?.events || []
   const showEventTabs = events.length > 1
 
-  // Sort: wins → sets diff → points diff
+  // Sort: league pts → wins → sets diff → points diff
   const sortedTeams = [...teams].sort((a, b) => {
-    const wDiff = (b.w || 0) - (a.w || 0); if (wDiff !== 0) return wDiff
-    const sDiff = ((b.setsWon || 0) - (b.setsLost || 0)) - ((a.setsWon || 0) - (a.setsLost || 0)); if (sDiff !== 0) return sDiff
+    const ptsDiff = (b.pts || 0) - (a.pts || 0); if (ptsDiff !== 0) return ptsDiff
+    const wDiff   = (b.w || 0) - (a.w || 0);     if (wDiff   !== 0) return wDiff
+    const sDiff   = ((b.setsWon || 0) - (b.setsLost || 0)) - ((a.setsWon || 0) - (a.setsLost || 0)); if (sDiff !== 0) return sDiff
     return ((b.ptsFor || 0) - (b.ptsAgainst || 0)) - ((a.ptsFor || 0) - (a.ptsAgainst || 0))
   })
 
@@ -230,9 +231,9 @@ export default function LeagueTable() {
         <>
           {/* Column headers */}
           <div className="league-table-grid" style={{ padding: '0 10px 8px' }}>
-            {['#', 'Team', 'P', 'W', 'L', 'Sets', 'PD', ''].map((h, i) => (
-              <span key={i} title={['','','Played','Wins','Losses','Sets Won–Lost','Points Difference',''][i]}
-                style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--text-3)', textAlign: i === 1 ? 'left' : 'center' }}>
+            {['#', 'Team', 'P', 'W', 'L', 'Sets', 'PD', 'Pts', ''].map((h, i) => (
+              <span key={i} title={['','','Played','Wins','Losses','Sets Won–Lost','Points Difference','League Points',''][i]}
+                style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: h === 'Pts' ? 'var(--accent)' : 'var(--text-3)', textAlign: i === 1 ? 'left' : 'center' }}>
                 {h}
               </span>
             ))}
@@ -246,6 +247,7 @@ export default function LeagueTable() {
             const p        = team.p        || 0
             const w        = team.w        || 0
             const l        = team.l        || 0
+            const pts      = team.pts      || 0
             const setsWon  = team.setsWon  || 0
             const setsLost = team.setsLost || 0
             const ptsFor   = team.ptsFor   || 0
@@ -294,6 +296,11 @@ export default function LeagueTable() {
                   {/* Points Difference */}
                   <span style={{ textAlign: 'center', fontWeight: 800, fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums', color: pd > 0 ? '#16a34a' : pd < 0 ? '#dc2626' : 'var(--text-3)' }}>
                     {pdStr}
+                  </span>
+
+                  {/* League Pts */}
+                  <span style={{ textAlign: 'center', fontWeight: 900, fontSize: '0.95rem', fontVariantNumeric: 'tabular-nums', color: pts > 0 ? 'var(--accent)' : 'var(--text-3)' }}>
+                    {pts}
                   </span>
 
                   {/* Heart + count */}
