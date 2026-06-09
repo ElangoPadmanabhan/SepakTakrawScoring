@@ -222,12 +222,24 @@ export default function Scoring() {
   // Called from SubReentryModal with { outId, inId }
   const applySwap = async (side, { outId, inId }, type) => {
     const lineup = fixture.lineup || { home: [], away: [] }
+    const outPlayer = lineup[side]?.find(p => p.id === outId)
+    const inPlayer  = lineup[side]?.find(p => p.id === inId)
     const updated = { ...lineup, [side]: lineup[side].map(p => {
       if (p.id === outId) return { ...p, status: 'bench',   event: 'subOut'             }
       if (p.id === inId)  return { ...p, status: 'playing', event: type === 'reentry' ? 'reentry' : 'subIn' }
       return p
     })}
-    await save({ lineup: updated })
+    const teamName = side === 'home' ? fixture.homeTeam?.name : fixture.awayTeam?.name
+    await save({
+      lineup: updated,
+      subAlert: {
+        type,
+        teamName,
+        outName: outPlayer?.name || '',
+        inName:  inPlayer?.name  || '',
+        at: Date.now(),
+      }
+    })
     setSubModal(null)
   }
 
@@ -305,6 +317,11 @@ export default function Scoring() {
           homeTeam={fixture.homeTeam?.name}
           awayTeam={fixture.awayTeam?.name}
         />
+      )}
+
+      {/* Sub/reentry alert — viewer popup */}
+      {!isAdmin && fixture?.subAlert && (
+        <ViewerSubAlert subAlert={fixture.subAlert} />
       )}
 
       {/* Header */}
@@ -1089,6 +1106,57 @@ function GenericScoring() {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function ViewerSubAlert({ subAlert }) {
+  const [visible, setVisible] = useState(false)
+  const [lastAt, setLastAt]   = useState(null)
+
+  useEffect(() => {
+    if (!subAlert?.at || subAlert.at === lastAt) return
+    setLastAt(subAlert.at)
+    setVisible(true)
+    const id = setTimeout(() => setVisible(false), 4000)
+    return () => clearTimeout(id)
+  }, [subAlert?.at])
+
+  if (!visible) return null
+
+  const isReentry = subAlert.type === 'reentry'
+  const icon      = isReentry ? '↩️' : '🔄'
+  const label     = isReentry ? 'Re-entry' : 'Substitution'
+  const color     = isReentry ? '#6366f1' : '#16a34a'
+  const borderCol = isReentry ? 'rgba(99,102,241,0.35)' : 'rgba(34,197,94,0.35)'
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 90, left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 200, width: 'calc(100% - 32px)', maxWidth: 360,
+      background: '#1a1a2e',
+      borderRadius: 16, padding: '14px 16px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+      border: `1px solid ${borderCol}`,
+      animation: 'slideUp 280ms cubic-bezier(0.34,1.56,0.64,1)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: `${color}22`, border: `1px solid ${color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>
+          {icon}
+        </div>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <p style={{ fontSize: '0.65rem', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 3 }}>
+            {label} — {subAlert.teamName}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{subAlert.outName}</span>
+            <span style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 800 }}>↓</span>
+            <span style={{ fontSize: '0.7rem', color: '#22c55e', fontWeight: 800 }}>↑</span>
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{subAlert.inName}</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
