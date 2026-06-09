@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { doc, onSnapshot, updateDoc, collection, increment, getDocs, query } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -61,6 +61,7 @@ export default function Scoring() {
   const [awayPlayers, setAwayPlayers] = useState([])
   const [loading, setLoading]         = useState(!!fixtureId)
   const [busy, setBusy]               = useState(false)
+  const completingRef = useRef(false)   // prevents double-tap from running stats twice
   const [timeoutState, setTimeoutState] = useState(null)
   const [liveUrl, setLiveUrl]         = useState('')
   // lineup picker (before start)
@@ -136,8 +137,10 @@ export default function Scoring() {
     const updates = { sets, status: 'live' }
 
     const matchOver = sH >= SETS_TO_WIN || sA >= SETS_TO_WIN
-    // Only update team stats once — guard against already-completed fixture
-    if (matchOver && fixture.status !== 'completed') {
+    // Guard: only update stats once. completingRef is set synchronously so a
+    // second rapid tap before onSnapshot updates fixture.status is also blocked.
+    if (matchOver && fixture.status !== 'completed' && !completingRef.current) {
+      completingRef.current = true
       updates.status    = 'completed'
       updates.homeScore = sH
       updates.awayScore = sA
