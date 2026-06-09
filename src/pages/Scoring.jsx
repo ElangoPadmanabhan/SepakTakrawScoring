@@ -216,7 +216,8 @@ export default function Scoring() {
   const buildLineup = (allPlayers, startingIds) =>
     allPlayers.map(p => ({ id: p.id, name: p.name, role: p.role || 'Player', position: p.position || null, photoUrl: p.photoUrl || null, status: startingIds.includes(p.id) ? 'playing' : 'bench' }))
 
-  const lineupReady = homeStarting.length > 0 && awayStarting.length > 0
+  const courtSize   = fixture?.event === 'Quad' ? 4 : 3
+  const lineupReady = homeStarting.length === courtSize && awayStarting.length === courtSize
 
   const startMatch = async () => {
     if (!lineupReady) return
@@ -389,7 +390,7 @@ export default function Scoring() {
                 👕 Starting Lineup <span style={{ color: '#dc2626' }}>*</span>
               </p>
               {!lineupReady && (
-                <span style={{ fontSize: '0.65rem', color: '#dc2626', fontWeight: 600 }}>Required to start</span>
+                <span style={{ fontSize: '0.65rem', color: '#dc2626', fontWeight: 600 }}>Select {courtSize} players per team</span>
               )}
               {lineupReady && (
                 <span style={{ fontSize: '0.65rem', color: '#16a34a', fontWeight: 700 }}>✓ Ready</span>
