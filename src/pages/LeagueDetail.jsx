@@ -334,7 +334,7 @@ function TeamCard({ team, leagueId, leagueEvents }) {
       {/* Team header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
         <div style={{ width: 48, height: 48, borderRadius: 10, overflow: 'hidden', background: 'var(--bg-elevated)', border: '1px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {team.logoUrl ? <img src={team.logoUrl} alt={team.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '1.3rem' }}>👥</span>}
+          {team.logoUrl ? <img src={team.logoUrl} alt={team.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '1.3rem' }}>👥</span>}
         </div>
         <div style={{ flex: 1 }}>
           <p style={{ fontWeight: 800, fontSize: '0.95rem' }}>{team.name}</p>
@@ -674,8 +674,9 @@ function PlayerRow({ player, leagueId, teamId, leagueEvents }) {
 
 /* ── Shared sub-components ── */
 function PlayerAvatar({ player, size = 36 }) {
-  return player.photoUrl
-    ? <img src={player.photoUrl} alt={player.name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--border)' }} />
+  const [imgError, setImgError] = useState(false)
+  return (player.photoUrl && !imgError)
+    ? <img src={player.photoUrl} alt={player.name} referrerPolicy="no-referrer" onError={() => setImgError(true)} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--border)' }} />
     : <div style={{ width: size, height: size, borderRadius: '50%', background: 'var(--accent-mid)', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 800, fontSize: size*0.38, color: 'var(--accent)' }}>
         {player.name[0].toUpperCase()}
       </div>
@@ -1033,7 +1034,7 @@ function TeamPill({ team, align }) {
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, justifyContent: align === 'right' ? 'flex-end' : 'flex-start', overflow: 'hidden' }}>
       {align === 'right' && <span style={{ fontWeight: 700, fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.name}</span>}
       {team.logoUrl
-        ? <img src={team.logoUrl} alt={team.name} style={{ width: 24, height: 24, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+        ? <img src={team.logoUrl} alt={team.name} referrerPolicy="no-referrer" style={{ width: 24, height: 24, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
         : <div style={{ width: 24, height: 24, borderRadius: 5, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', flexShrink: 0 }}>👥</div>}
       {align === 'left' && <span style={{ fontWeight: 700, fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.name}</span>}
     </div>

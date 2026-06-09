@@ -571,7 +571,7 @@ function TeamActionPanel({ teamName, logoUrl, side, timeoutUsed, subs, reentries
       {/* Team name header */}
       <div style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 7 }}>
         {logoUrl
-          ? <img src={logoUrl} alt={teamName} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+          ? <img src={logoUrl} alt={teamName} referrerPolicy="no-referrer" style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
           : <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>👥</span>}
         <p className="score-panel-name" style={{ textAlign: 'left' }}>{teamName}</p>
       </div>
@@ -714,7 +714,7 @@ function TimeoutOverlay({ remaining, teamName, onDismiss }) {
 function TeamHeader({ team, right }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: right ? 'flex-end' : 'flex-start', gap: 4, overflow: 'hidden' }}>
-      {team?.logoUrl && <img src={team.logoUrl} alt={team.name} style={{ width: 32, height: 32, borderRadius: 7, objectFit: 'cover', border: '1px solid var(--border)' }} />}
+      {team?.logoUrl && <img src={team.logoUrl} alt={team.name} referrerPolicy="no-referrer" style={{ width: 32, height: 32, borderRadius: 7, objectFit: 'cover', border: '1px solid var(--border)' }} />}
       <span style={{ fontWeight: 800, fontSize: '0.8rem', textAlign: right ? 'right' : 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{team?.name}</span>
     </div>
   )
@@ -759,7 +759,7 @@ function PlayersList({ team, players }) {
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
       <div style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
         {team?.logoUrl
-          ? <img src={team.logoUrl} alt={team.name} style={{ width: 24, height: 24, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+          ? <img src={team.logoUrl} alt={team.name} referrerPolicy="no-referrer" style={{ width: 24, height: 24, borderRadius: 5, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
           : <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>👥</span>}
         <p style={{ fontWeight: 800, fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team?.name}</p>
       </div>
@@ -1085,7 +1085,7 @@ function LiveTeamBlock({ team, align }) {
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, justifyContent: align === 'right' ? 'flex-end' : 'flex-start', overflow: 'hidden' }}>
       {align === 'right' && <span style={{ fontWeight: 700, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.name}</span>}
       {team.logoUrl
-        ? <img src={team.logoUrl} alt={team.name} style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+        ? <img src={team.logoUrl} alt={team.name} referrerPolicy="no-referrer" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
         : <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', flexShrink: 0 }}>👥</div>}
       {align === 'left' && <span style={{ fontWeight: 700, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.name}</span>}
     </div>

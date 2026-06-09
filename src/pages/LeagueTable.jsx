@@ -258,7 +258,7 @@ export default function LeagueTable() {
                   {/* Team name + logo */}
                   <div className="team-name-cell" style={{ paddingLeft: 1 }}>
                     {team.logoUrl ? (
-                      <img src={team.logoUrl} alt={team.name} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
+                      <img src={team.logoUrl} alt={team.name} referrerPolicy="no-referrer" style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
                     ) : (
                       <div style={{ width: 22, height: 22, borderRadius: 5, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.7rem' }}>👥</div>
                     )}

@@ -65,6 +65,7 @@ export function Avatar({ user, isAdmin, size = 36 }) {
           alt={user.displayName || 'Profile'}
           width={size}
           height={size}
+          referrerPolicy="no-referrer"
           onError={() => setImgError(true)}
           style={{
             width: size, height: size,
