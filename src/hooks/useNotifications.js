@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { getToken, onMessage } from 'firebase/messaging'
+import { getToken, onMessage, getMessaging, isSupported } from 'firebase/messaging'
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { messaging, db } from '../firebase'
+import { app, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY
@@ -11,11 +11,17 @@ export function useNotifications() {
   const { user } = useAuth()
 
   useEffect(() => {
-    if (!user || !messaging) return
+    if (!user) return
     if (!('Notification' in window) || !('serviceWorker' in navigator)) return
 
     const setup = async () => {
       try {
+        // Check browser supports FCM before doing anything
+        const supported = await isSupported()
+        if (!supported) return
+
+        const messaging = getMessaging(app)
+
         // Ask permission — browser shows the "Allow notifications?" prompt
         const permission = await Notification.requestPermission()
         if (permission !== 'granted') return
@@ -50,12 +56,12 @@ export function useNotifications() {
           const n = new Notification(title, {
             body,
             icon: `${BASE}icons/icon-192.png`,
-            tag: 'match-live',
+            tag:  'match-live',
           })
           if (url) n.onclick = () => { window.focus(); window.location.href = url }
         })
       } catch (err) {
-        // Silently ignore — notification is a nice-to-have, not critical
+        // Notifications are a nice-to-have — never crash the app
         console.warn('[notifications]', err)
       }
     }
