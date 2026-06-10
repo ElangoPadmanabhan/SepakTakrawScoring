@@ -1,14 +1,9 @@
 import { useState } from 'react'
-import { getMessaging, getToken, isSupported } from 'firebase/messaging'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { Avatar } from './TopBar'
 import { useSupportedTeam } from '../hooks/useSupportedTeam'
 import { hardRefresh } from './UpdateBanner'
-import { app, db } from '../firebase'
-
-const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY
-const BASE      = import.meta.env.BASE_URL || '/'
+import { requestNotificationPermission } from '../hooks/useNotifications'
 
 export default function ProfileSheet({ open, onClose }) {
   const { user, isAdmin, adminLogout, userLogout } = useAuth()
@@ -31,31 +26,11 @@ export default function ProfileSheet({ open, onClose }) {
   }
 
   const handleEnableNotifications = async () => {
-    if (notifState === 'denied') return   // browser blocked — can't re-ask
+    if (notifState === 'denied') return
     setEnablingNotif(true)
-    try {
-      const supported = await isSupported()
-      if (!supported) { setNotifState('unsupported'); return }
-
-      const permission = await Notification.requestPermission()
-      setNotifState(permission)
-      if (permission !== 'granted') return
-
-      const messaging = getMessaging(app)
-      const swReg = await navigator.serviceWorker.register(
-        `${BASE}firebase-messaging-sw.js`, { scope: BASE }
-      )
-      const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg })
-      if (token && user) {
-        await setDoc(doc(db, 'userTokens', user.uid), {
-          token, uid: user.uid, updatedAt: serverTimestamp(),
-        })
-      }
-    } catch (err) {
-      console.warn('[notif]', err)
-    } finally {
-      setEnablingNotif(false)
-    }
+    const result = await requestNotificationPermission(user?.uid)
+    setNotifState(result === 'error' ? 'default' : result)
+    setEnablingNotif(false)
   }
 
   if (!open) return null
