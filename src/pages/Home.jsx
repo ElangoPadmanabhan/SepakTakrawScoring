@@ -165,11 +165,25 @@ function LeagueCard({ league }) {
   const live     = fixtures.filter(f => f.status === 'live')
   const todayFix = fixtures.filter(f => f.date === today && f.status === 'scheduled')
   const played   = fixtures.filter(f => f.status === 'completed')
-  const topTeam  = [...teams].sort((a, b) => {
-    const wD = (b.w||0)-(a.w||0); if (wD) return wD
-    const sD = ((b.setsWon||0)-(b.setsLost||0))-((a.setsWon||0)-(a.setsLost||0)); if (sD) return sD
-    return ((b.ptsFor||0)-(b.ptsAgainst||0))-((a.ptsFor||0)-(a.ptsAgainst||0))
-  })[0] || null
+  const events   = league.events || []
+  const [activeEvent, setActiveEvent] = useState(() => events[0] || null)
+
+  const getStats = (team) => {
+    const s = activeEvent ? (team.eventStats?.[activeEvent] || {}) : {}
+    return {
+      w: s.w || 0, l: s.l || 0, p: s.p || 0,
+      setsWon: s.setsWon || 0, setsLost: s.setsLost || 0,
+      ptsFor: s.ptsFor || 0, ptsAgainst: s.ptsAgainst || 0,
+      pts: s.pts || 0,
+    }
+  }
+
+  const topTeams = [...teams].sort((a, b) => {
+    const sa = getStats(a), sb = getStats(b)
+    const wD = sb.pts - sa.pts; if (wD) return wD
+    const sD = (sb.setsWon - sb.setsLost) - (sa.setsWon - sa.setsLost); if (sD) return sD
+    return (sb.ptsFor - sb.ptsAgainst) - (sa.ptsFor - sa.ptsAgainst)
+  }).slice(0, 2)
 
   const goTable    = () => { sessionStorage.setItem('selectedLeagueId', league.id); navigate('/table') }
   const goFixtures = () => { sessionStorage.setItem('selectedLeagueId', league.id); navigate('/fixtures') }
@@ -213,29 +227,61 @@ function LeagueCard({ league }) {
         </div>
       </div>
 
-      {/* ── Table leader ── */}
-      {topTeam && (
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>🥇</span>
-          {topTeam.logoUrl
-            ? <img src={topTeam.logoUrl} alt={topTeam.name} style={{ width: 26, height: 26, borderRadius: 6, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
-            : <div style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0 }}>👥</div>}
-          <span style={{ flex: 1, fontWeight: 700, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{topTeam.name}</span>
-          <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-            {[
-              { l: 'W',    v: topTeam.w||0, c: 'var(--text-1)' },
-              { l: 'L',    v: topTeam.l||0, c: 'var(--text-2)' },
-              { l: 'Sets', v: `${(topTeam.setsWon||0)-(topTeam.setsLost||0)>=0?'+':''}${(topTeam.setsWon||0)-(topTeam.setsLost||0)}`, c: (topTeam.setsWon||0)-(topTeam.setsLost||0)>=0?'#16a34a':'#dc2626' },
-              { l: 'PD',   v: `${(topTeam.ptsFor||0)-(topTeam.ptsAgainst||0)>=0?'+':''}${(topTeam.ptsFor||0)-(topTeam.ptsAgainst||0)}`, c: (topTeam.ptsFor||0)-(topTeam.ptsAgainst||0)>=0?'#16a34a':'#dc2626' },
-            ].map(({ l, v, c }) => (
-              <div key={l} style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: '0.55rem', color: 'var(--text-3)', fontWeight: 600 }}>{l}</p>
-                <p style={{ fontSize: '0.85rem', fontWeight: 800, color: c, fontVariantNumeric: 'tabular-nums' }}>{v}</p>
-              </div>
-            ))}
-          </div>
+      {/* ── Event tabs (only if league has multiple events) ── */}
+      {events.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, padding: '8px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-elevated)' }}>
+          {events.map(ev => (
+            <button key={ev} onClick={() => setActiveEvent(ev)}
+              style={{
+                height: 28, padding: '0 12px', borderRadius: 20, fontFamily: 'inherit',
+                fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer',
+                border: activeEvent === ev ? '1.5px solid var(--accent)' : '1.5px solid var(--border)',
+                background: activeEvent === ev ? 'rgba(255,85,0,0.08)' : 'var(--bg-card)',
+                color: activeEvent === ev ? 'var(--accent)' : 'var(--text-2)',
+                transition: 'all 150ms ease',
+              }}>
+              {EVENT_ICON[ev]} {ev}
+            </button>
+          ))}
         </div>
       )}
+
+      {/* ── Top 2 teams ── */}
+      {topTeams.length > 0 && topTeams.map((team, idx) => {
+        const s       = getStats(team)
+        const setDiff = s.setsWon - s.setsLost
+        const pd      = s.ptsFor - s.ptsAgainst
+        const medal   = idx === 0 ? '🥇' : '🥈'
+        return (
+          <div key={team.id} style={{
+            padding: '10px 14px',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: idx === 0 ? 'rgba(255,85,0,0.03)' : 'transparent',
+          }}>
+            <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>{medal}</span>
+            {team.logoUrl
+              ? <img src={team.logoUrl} referrerPolicy="no-referrer" alt={team.name}
+                  style={{ width: 26, height: 26, borderRadius: 6, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+              : <div style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0 }}>👥</div>
+            }
+            <span style={{ flex: 1, fontWeight: 700, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.name}</span>
+            <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+              {[
+                { l: 'Pts',  v: s.pts,                                   c: 'var(--accent)'                    },
+                { l: 'W',    v: s.w,                                     c: 'var(--text-1)'                    },
+                { l: 'L',    v: s.l,                                     c: 'var(--text-2)'                    },
+                { l: 'Sets', v: `${setDiff >= 0 ? '+' : ''}${setDiff}`, c: setDiff >= 0 ? '#16a34a' : '#dc2626' },
+              ].map(({ l, v, c }) => (
+                <div key={l} style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.55rem', color: 'var(--text-3)', fontWeight: 600 }}>{l}</p>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 800, color: c, fontVariantNumeric: 'tabular-nums' }}>{v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
 
     </div>
   )

@@ -775,7 +775,12 @@ function generateFixtures(teams, events, startDate) {
   const sunday = (weekOffset) => {
     const d = new Date(firstSunday)
     d.setDate(d.getDate() + weekOffset * 7)
-    return d.toISOString().split('T')[0]
+    // Use local date parts — toISOString() returns UTC which shifts the date
+    // back by a day in IST (UTC+5:30), turning Sunday into Saturday
+    const y  = d.getFullYear()
+    const mo = String(d.getMonth() + 1).padStart(2, '0')
+    const dy = String(d.getDate()).padStart(2, '0')
+    return `${y}-${mo}-${dy}`
   }
 
   const hasRegu = events.includes('Regu')

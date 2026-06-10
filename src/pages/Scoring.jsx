@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { doc, onSnapshot, updateDoc, collection, increment, getDocs, query } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, collection, increment, getDocs, getDoc, query } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import ViewerCount from '../components/ViewerCount'
@@ -231,6 +231,13 @@ export default function Scoring() {
       away: buildLineup(awayPlayers, awayStarting),
     }
     await save(updates)
+
+    // Auto-activate league when first match goes live
+    const leagueRef  = doc(db, 'leagues', leagueId)
+    const leagueSnap = await getDoc(leagueRef)
+    if (leagueSnap.exists() && leagueSnap.data().status === 'upcoming') {
+      await updateDoc(leagueRef, { status: 'active' })
+    }
   }
 
   // Called from SubReentryModal with { outId, inId }
