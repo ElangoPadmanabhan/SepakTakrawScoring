@@ -177,6 +177,22 @@ body {
   to   { transform: translateY(0);     opacity: 1; }
 }
 
+/* ─── Skeleton shimmer ─── */
+@keyframes shimmer {
+  0%   { background-position: -400% 0; }
+  100% { background-position:  400% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--bg-elevated) 25%,
+    var(--border)      50%,
+    var(--bg-elevated) 75%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+
 /* ─── Spinner ─── */
 @keyframes spin {
   to { transform: rotate(360deg); }

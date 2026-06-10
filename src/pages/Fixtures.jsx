@@ -76,8 +76,38 @@ export default function Fixtures() {
   const resultsCount  = past.length
 
   if (loading) return (
-    <div className="page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60dvh' }}>
-      <p style={{ color: 'var(--text-2)' }}>Loading…</p>
+    <div className="page">
+      <div className="page-header" style={{ marginBottom: 14 }}>
+        <div style={{ flex: 1 }}>
+          <div className="skeleton" style={{ width: 120, height: 10, borderRadius: 4, marginBottom: 6 }} />
+          <div className="skeleton" style={{ width: 180, height: 22, borderRadius: 6 }} />
+        </div>
+      </div>
+      {/* League tab skeletons */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {[80, 100].map((w, i) => <div key={i} className="skeleton" style={{ width: w, height: 32, borderRadius: 20, flexShrink: 0 }} />)}
+      </div>
+      {/* Fixture card skeletons */}
+      {[0,1,2,3].map(i => (
+        <div key={i} className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 10 }}>
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-elevated)', display: 'flex', justifyContent: 'space-between' }}>
+            <div className="skeleton" style={{ width: 80, height: 10, borderRadius: 4 }} />
+            <div className="skeleton" style={{ width: 60, height: 10, borderRadius: 4 }} />
+          </div>
+          <div className="fixture-row">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div className="skeleton" style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0 }} />
+              <div className="skeleton" style={{ width: '70%', height: 12, borderRadius: 4 }} />
+            </div>
+            <div className="skeleton" style={{ width: 48, height: 28, borderRadius: 6, justifySelf: 'center' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div className="skeleton" style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0 }} />
+              <div className="skeleton" style={{ width: '70%', height: 12, borderRadius: 4 }} />
+            </div>
+            <div className="skeleton" style={{ width: 50, height: 24, borderRadius: 20 }} />
+          </div>
+        </div>
+      ))}
     </div>
   )
 

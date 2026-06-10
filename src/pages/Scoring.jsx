@@ -293,8 +293,36 @@ export default function Scoring() {
   // ── Guards ────────────────────────────────────────────
   if (!fixtureId) return <GenericScoring />
   if (loading) return (
-    <div className="page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60dvh' }}>
-      <p style={{ color: 'var(--text-2)' }}>Loading match…</p>
+    <div className="page">
+      {/* Score panel skeleton */}
+      <div className="card" style={{ marginBottom: 12, padding: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div className="skeleton" style={{ width: 80, height: 10, borderRadius: 4 }} />
+          <div className="skeleton" style={{ width: 60, height: 10, borderRadius: 4 }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div className="skeleton" style={{ width: 52, height: 52, borderRadius: '50%' }} />
+            <div className="skeleton" style={{ width: '70%', height: 12, borderRadius: 4 }} />
+          </div>
+          <div className="skeleton" style={{ width: 70, height: 48, borderRadius: 10 }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div className="skeleton" style={{ width: 52, height: 52, borderRadius: '50%' }} />
+            <div className="skeleton" style={{ width: '70%', height: 12, borderRadius: 4 }} />
+          </div>
+        </div>
+      </div>
+      {/* Sets skeleton */}
+      {[0,1,2].map(i => (
+        <div key={i} className="card" style={{ marginBottom: 10, padding: '12px 16px' }}>
+          <div className="skeleton" style={{ width: '40%', height: 10, borderRadius: 4, marginBottom: 10 }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div className="skeleton" style={{ width: '30%', height: 36, borderRadius: 8 }} />
+            <div className="skeleton" style={{ width: 40, height: 36, borderRadius: 8 }} />
+            <div className="skeleton" style={{ width: '30%', height: 36, borderRadius: 8 }} />
+          </div>
+        </div>
+      ))}
     </div>
   )
   if (!fixture) return (

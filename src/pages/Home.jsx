@@ -8,13 +8,15 @@ const EVENT_ICON = { Regu: '👟', Quad: '🏐' }
 export default function Home() {
   const { user, isAdmin } = useAuth()
   const [allLeagues, setAllLeagues] = useState([])
+  const [loading, setLoading]       = useState(true)
 
   useEffect(() => {
     return onSnapshot(collection(db, 'leagues'), snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       all.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
       setAllLeagues(all)
-    })
+      setLoading(false)
+    }, () => setLoading(false))
   }, [])
 
   const activeLeagues    = allLeagues.filter(l => l.status === 'active')
@@ -45,8 +47,11 @@ export default function Home() {
       {/* ── Live Matches (all leagues combined) ── */}
       <LiveMatchesSection leagues={activeLeagues} />
 
+      {/* ── Skeleton while loading ── */}
+      {loading && <HomeSkeletons />}
+
       {/* ── League cards ── */}
-      {activeLeagues.length === 0 && completedLeagues.length === 0 && (
+      {!loading && activeLeagues.length === 0 && completedLeagues.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '32px 16px' }}>
           <p style={{ fontSize: '1.5rem', marginBottom: 8 }}>🏐</p>
           <p style={{ fontWeight: 700, marginBottom: 4 }}>No active tournaments</p>
@@ -54,7 +59,7 @@ export default function Home() {
         </div>
       )}
 
-      {activeLeagues.map(league => (
+      {!loading && activeLeagues.map(league => (
         <LeagueCard key={league.id} league={league} />
       ))}
 
@@ -71,6 +76,35 @@ export default function Home() {
       )}
 
     </div>
+  )
+}
+
+function HomeSkeletons() {
+  const S = ({ w = '100%', h = 14, r = 6, mb = 0 }) => (
+    <div className="skeleton" style={{ width: w, height: h, borderRadius: r, marginBottom: mb }} />
+  )
+  return (
+    <>
+      {[0, 1].map(i => (
+        <div key={i} className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 14 }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-elevated)' }}>
+            <S w="40%" h={10} mb={6} />
+            <S w="60%" h={16} mb={10} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <S w="30%" h={34} r={8} /> <S w="30%" h={34} r={8} />
+            </div>
+          </div>
+          <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <S w={26} h={26} r={6} />
+            <S w={26} h={26} r={13} />
+            <S w="40%" h={14} />
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+              <S w={28} h={28} r={4} /> <S w={28} h={28} r={4} /> <S w={28} h={28} r={4} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
   )
 }
 

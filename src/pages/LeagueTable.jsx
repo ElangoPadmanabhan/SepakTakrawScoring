@@ -120,8 +120,31 @@ export default function LeagueTable() {
 
   if (loading) {
     return (
-      <div className="page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60dvh' }}>
-        <p style={{ color: 'var(--text-2)' }}>Loading…</p>
+      <div className="page">
+        <div className="page-header" style={{ marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <div className="skeleton" style={{ width: 120, height: 10, borderRadius: 4, marginBottom: 6 }} />
+            <div className="skeleton" style={{ width: 160, height: 22, borderRadius: 6 }} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {[80, 80].map((w, i) => <div key={i} className="skeleton" style={{ width: w, height: 32, borderRadius: 20 }} />)}
+        </div>
+        <div className="card" style={{ padding: '12px 10px' }}>
+          <div style={{ height: 1, background: 'var(--border)', marginBottom: 8 }} />
+          {[0,1,2,3,4].map(i => (
+            <div key={i} className="league-table-grid" style={{ padding: '8px 0' }}>
+              <div className="skeleton" style={{ width: 18, height: 18, borderRadius: 4 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="skeleton" style={{ width: 22, height: 22, borderRadius: '50%', flexShrink: 0 }} />
+                <div className="skeleton" style={{ width: '65%', height: 12, borderRadius: 4 }} />
+              </div>
+              {[0,1,2,3,4,5,6].map(j => (
+                <div key={j} className="skeleton" style={{ height: 12, borderRadius: 4 }} />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
