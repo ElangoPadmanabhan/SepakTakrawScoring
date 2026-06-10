@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
+import { useLeagues } from '../context/LeaguesContext'
 import { useSupportedTeam } from '../hooks/useSupportedTeam'
 
 const EVENT_ICON = { Regu: '👟', Quad: '🏐' }
@@ -19,32 +20,23 @@ function formatDateShort(dateStr) {
 export default function Fixtures() {
   const { isAdmin } = useAuth()
   const { supportedTeam } = useSupportedTeam()
+  const { leagues, loading } = useLeagues()
 
-  const [leagues, setLeagues]               = useState([])
   const [selectedLeague, setSelectedLeague] = useState(null)
   const [fixtures, setFixtures]             = useState([])
   const [activeEvent, setActiveEvent]       = useState('All')
   const [activeTab, setActiveTab]           = useState('upcoming') // 'upcoming' | 'results'
-  const [loading, setLoading]               = useState(true)
 
-  // Load leagues — force-clear loading after 5s in case Firestore is slow
+  // Sync selectedLeague when leagues arrive or change
   useEffect(() => {
-    const timeout = setTimeout(() => setLoading(false), 5000)
-    const unsub = onSnapshot(collection(db, 'leagues'), snap => {
-      clearTimeout(timeout)
-      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      all.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
-      setLeagues(all)
-      setSelectedLeague(prev => {
-        if (prev && all.find(l => l.id === prev.id)) return all.find(l => l.id === prev.id)
-        const pinned = sessionStorage.getItem('selectedLeagueId')
-        if (pinned) { sessionStorage.removeItem('selectedLeagueId'); return all.find(l => l.id === pinned) || all.find(l => l.status === 'active') || all[0] || null }
-        return all.find(l => l.status === 'active') || all[0] || null
-      })
-      setLoading(false)
-    }, () => { clearTimeout(timeout); setLoading(false) })
-    return () => { clearTimeout(timeout); unsub() }
-  }, [])
+    if (leagues.length === 0) return
+    setSelectedLeague(prev => {
+      if (prev && leagues.find(l => l.id === prev.id)) return leagues.find(l => l.id === prev.id)
+      const pinned = sessionStorage.getItem('selectedLeagueId')
+      if (pinned) { sessionStorage.removeItem('selectedLeagueId'); return leagues.find(l => l.id === pinned) || leagues.find(l => l.status === 'active') || leagues[0] || null }
+      return leagues.find(l => l.status === 'active') || leagues[0] || null
+    })
+  }, [leagues])
 
   // Load fixtures for selected league
   useEffect(() => {

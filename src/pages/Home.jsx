@@ -3,21 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
+import { useLeagues } from '../context/LeaguesContext'
 const EVENT_ICON = { Regu: '👟', Quad: '🏐' }
 
 export default function Home() {
   const { user, isAdmin } = useAuth()
-  const [allLeagues, setAllLeagues] = useState([])
-  const [loading, setLoading]       = useState(true)
-
-  useEffect(() => {
-    return onSnapshot(collection(db, 'leagues'), snap => {
-      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      all.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
-      setAllLeagues(all)
-      setLoading(false)
-    }, () => setLoading(false))
-  }, [])
+  const { leagues: allLeagues, loading } = useLeagues()
 
   const activeLeagues    = allLeagues.filter(l => l.status === 'active')
   const completedLeagues = allLeagues.filter(l => l.status === 'completed')
@@ -156,10 +147,31 @@ function LiveMatchesSection({ leagues }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <TeamBlock team={f.homeTeam} align="right" />
               <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 8, padding: '5px 12px', textAlign: 'center', flexShrink: 0 }}>
-                <p style={{ fontWeight: 900, fontSize: '1rem', color: '#16a34a', fontVariantNumeric: 'tabular-nums' }}>
-                  {(f.sets || []).filter(s => s.winner === 'home').length} – {(f.sets || []).filter(s => s.winner === 'away').length}
-                </p>
-                <p style={{ fontSize: '0.5rem', color: 'var(--text-3)', fontWeight: 600 }}>SETS</p>
+                {(() => {
+                  const sets = f.sets || []
+                  const curIdx = f.currentSet ?? 0
+                  const curSet = sets[curIdx]
+                  const homeSets = sets.filter(s => s.winner === 'home').length
+                  const awaySets = sets.filter(s => s.winner === 'away').length
+                  const showLive = curSet && !curSet.winner && (curSet.home > 0 || curSet.away > 0)
+                  return (
+                    <>
+                      {showLive && (
+                        <>
+                          <p style={{ fontWeight: 900, fontSize: '1.05rem', color: '#16a34a', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+                            {curSet.home} – {curSet.away}
+                          </p>
+                          <p style={{ fontSize: '0.48rem', color: 'var(--text-3)', fontWeight: 600, marginTop: 1 }}>SET {curIdx + 1}</p>
+                          <div style={{ height: 1, background: 'rgba(34,197,94,0.2)', margin: '3px 0' }} />
+                        </>
+                      )}
+                      <p style={{ fontWeight: showLive ? 700 : 900, fontSize: showLive ? '0.78rem' : '1rem', color: showLive ? 'var(--text-2)' : '#16a34a', fontVariantNumeric: 'tabular-nums' }}>
+                        {homeSets} – {awaySets}
+                      </p>
+                      <p style={{ fontSize: '0.48rem', color: 'var(--text-3)', fontWeight: 600 }}>SETS</p>
+                    </>
+                  )
+                })()}
               </div>
               <TeamBlock team={f.awayTeam} align="left" />
             </div>

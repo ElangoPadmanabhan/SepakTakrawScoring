@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
+import { useLeagues } from '../context/LeaguesContext'
 import { useSupportedTeam } from '../hooks/useSupportedTeam'
 
 const POS_STYLE = {
@@ -15,37 +16,24 @@ const EVENT_ICON = { Regu: '👟', Quad: '🏐' }
 export default function LeagueTable() {
   const { isAdmin } = useAuth()
   const { supportedTeam, supportTeam } = useSupportedTeam()
+  const { leagues, loading } = useLeagues()
 
-  const [leagues, setLeagues]         = useState([])
   const [selectedLeague, setSelectedLeague] = useState(null)
   const [teams, setTeams]             = useState([])
   const [fixtures, setFixtures]       = useState([])
   const [activeEvent, setActiveEvent] = useState(null)
-  const [loading, setLoading]         = useState(true)
   const [supportCounts, setSupportCounts] = useState({}) // { teamId: count }
 
-  // Load all leagues — force-clear loading after 5s in case Firestore is slow
+  // Sync selectedLeague when leagues arrive or change
   useEffect(() => {
-    const timeout = setTimeout(() => setLoading(false), 5000)
-    const unsub = onSnapshot(collection(db, 'leagues'), snap => {
-      clearTimeout(timeout)
-      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      all.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
-      setLeagues(all)
-      setSelectedLeague(prev => {
-        if (prev && all.find(l => l.id === prev.id)) return all.find(l => l.id === prev.id)
-        const pinned = sessionStorage.getItem('selectedLeagueId')
-        if (pinned) { sessionStorage.removeItem('selectedLeagueId'); return all.find(l => l.id === pinned) || all.find(l => l.status === 'active') || all[0] || null }
-        return all.find(l => l.status === 'active') || all[0] || null
-      })
-      setLoading(false)
-    }, () => {
-      // onSnapshot error — stop loading and show empty state
-      clearTimeout(timeout)
-      setLoading(false)
+    if (leagues.length === 0) return
+    setSelectedLeague(prev => {
+      if (prev && leagues.find(l => l.id === prev.id)) return leagues.find(l => l.id === prev.id)
+      const pinned = sessionStorage.getItem('selectedLeagueId')
+      if (pinned) { sessionStorage.removeItem('selectedLeagueId'); return leagues.find(l => l.id === pinned) || leagues.find(l => l.status === 'active') || leagues[0] || null }
+      return leagues.find(l => l.status === 'active') || leagues[0] || null
     })
-    return () => { clearTimeout(timeout); unsub() }
-  }, [])
+  }, [leagues])
 
   // When selected league changes, set default event tab
   useEffect(() => {
