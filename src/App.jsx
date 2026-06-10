@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { useNotifications } from './hooks/useNotifications'
 import Navbar from './components/Navbar'
 import UpdateBanner from './components/UpdateBanner'
 import LoginPage from './pages/LoginPage'
@@ -35,6 +36,7 @@ const LOGO_BG = `${import.meta.env.BASE_URL}home-logo.jpg`
 
 export default function App() {
   const { user, isAdmin, loading } = useAuth()
+  useNotifications()   // request permission + save FCM token after login
   if (loading) return <Splash />
   const isAuthed = user || isAdmin
 
