@@ -2,6 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Restore path encoded by 404.html (GitHub Pages SPA redirect)
+      (function () {
+        var p = new URLSearchParams(window.location.search).get('p')
+        if (p) {
+          var path = decodeURIComponent(p)
+          // Strip the base segment (/chennaisepaktakraw/) already in basename
+          path = path.replace(/^chennaisepaktakraw\//, '')
+          window.history.replaceState(null, null, '/' + path || '/')
+        }
+      })()
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#1a1a2e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
