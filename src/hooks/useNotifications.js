@@ -47,12 +47,18 @@ export function useNotifications() {
           })
         }
 
-        // Foreground: show in-app banner (avoids duplicating SW background push)
+        // Foreground + background: fire native Notification for both paths
         if (unsubRef.current) unsubRef.current()
         unsubRef.current = onMessage(messaging, payload => {
           const title = payload.notification?.title || '🏐 Match Live!'
           const body  = payload.notification?.body  || ''
-          showInAppBanner(title, body, payload.data?.url)
+          const url   = payload.data?.url
+          const n = new Notification(title, {
+            body,
+            icon: `${BASE}icons/icon-192.png`,
+            tag:  'match-live',
+          })
+          if (url) n.onclick = () => { window.focus(); window.location.href = url }
         })
       } catch (err) {
         console.warn('[notifications]', err)
@@ -94,7 +100,13 @@ export async function requestNotificationPermission(uid) {
     onMessage(messaging, payload => {
       const title = payload.notification?.title || '🏐 Match Live!'
       const body  = payload.notification?.body  || ''
-      showInAppBanner(title, body, payload.data?.url)
+      const url   = payload.data?.url
+      const n = new Notification(title, {
+        body,
+        icon: `${BASE}icons/icon-192.png`,
+        tag:  'match-live',
+      })
+      if (url) n.onclick = () => { window.focus(); window.location.href = url }
     })
 
     return 'granted'
