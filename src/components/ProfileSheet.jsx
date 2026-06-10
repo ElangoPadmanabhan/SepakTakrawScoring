@@ -1,13 +1,23 @@
 import { useState } from 'react'
+import { getMessaging, getToken, isSupported } from 'firebase/messaging'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { Avatar } from './TopBar'
 import { useSupportedTeam } from '../hooks/useSupportedTeam'
 import { hardRefresh } from './UpdateBanner'
+import { app, db } from '../firebase'
+
+const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY
+const BASE      = import.meta.env.BASE_URL || '/'
 
 export default function ProfileSheet({ open, onClose }) {
   const { user, isAdmin, adminLogout, userLogout } = useAuth()
   const { supportedTeam } = useSupportedTeam()
-  const [refreshing, setRefreshing] = useState(false)
+  const [refreshing, setRefreshing]   = useState(false)
+  const [notifState, setNotifState]   = useState(
+    'Notification' in window ? Notification.permission : 'unsupported'
+  ) // 'default' | 'granted' | 'denied' | 'unsupported'
+  const [enablingNotif, setEnablingNotif] = useState(false)
 
   const handleSignOut = async () => {
     onClose()
@@ -18,6 +28,34 @@ export default function ProfileSheet({ open, onClose }) {
   const handleRefresh = async () => {
     setRefreshing(true)
     await hardRefresh()
+  }
+
+  const handleEnableNotifications = async () => {
+    if (notifState === 'denied') return   // browser blocked — can't re-ask
+    setEnablingNotif(true)
+    try {
+      const supported = await isSupported()
+      if (!supported) { setNotifState('unsupported'); return }
+
+      const permission = await Notification.requestPermission()
+      setNotifState(permission)
+      if (permission !== 'granted') return
+
+      const messaging = getMessaging(app)
+      const swReg = await navigator.serviceWorker.register(
+        `${BASE}firebase-messaging-sw.js`, { scope: BASE }
+      )
+      const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg })
+      if (token && user) {
+        await setDoc(doc(db, 'userTokens', user.uid), {
+          token, uid: user.uid, updatedAt: serverTimestamp(),
+        })
+      }
+    } catch (err) {
+      console.warn('[notif]', err)
+    } finally {
+      setEnablingNotif(false)
+    }
   }
 
   if (!open) return null
@@ -128,6 +166,42 @@ export default function ProfileSheet({ open, onClose }) {
                   Signed in via
                 </p>
                 <p style={{ fontWeight: 700, fontSize: '0.92rem' }}>Google</p>
+              </div>
+            </div>
+          )}
+
+          {/* Enable notifications — not shown if unsupported */}
+          {notifState !== 'unsupported' && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 14,
+              padding: '14px 24px',
+              borderBottom: '1px solid var(--border)',
+              cursor: notifState === 'denied' ? 'not-allowed' : 'pointer',
+              opacity: enablingNotif ? 0.5 : 1,
+            }} onClick={notifState !== 'granted' ? handleEnableNotifications : undefined}>
+              <div style={{
+                width: 38, height: 38, borderRadius: 10,
+                background: notifState === 'granted' ? 'rgba(22,163,74,0.08)' : 'rgba(255,85,0,0.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1.1rem', flexShrink: 0,
+              }}>
+                {notifState === 'granted' ? '🔔' : notifState === 'denied' ? '🔕' : '🔔'}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>
+                  Match Alerts
+                </p>
+                <p style={{ fontWeight: 700, fontSize: '0.92rem', color: notifState === 'granted' ? 'var(--success)' : notifState === 'denied' ? 'var(--text-3)' : 'var(--text-1)' }}>
+                  {enablingNotif       ? 'Enabling…'
+                   : notifState === 'granted' ? '✓ Notifications On'
+                   : notifState === 'denied'  ? 'Blocked by browser'
+                   : 'Enable Notifications'}
+                </p>
+                {notifState === 'denied' && (
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginTop: 2 }}>
+                    Allow in browser site settings
+                  </p>
+                )}
               </div>
             </div>
           )}
