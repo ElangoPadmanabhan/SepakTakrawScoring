@@ -842,6 +842,9 @@ function FixturesSection({ leagueId, league, teams }) {
   const [confirmRegen, setConfirmRegen] = useState(false)
   const [saving, setSaving]         = useState(false)
   const [collapsed, setCollapsed]   = useState(true)   // existing fixtures list
+  const [rescheduleFixture, setRescheduleFixture] = useState(null) // { id, homeTeam, awayTeam, event, leg, date }
+  const [rescheduleDate, setRescheduleDate]       = useState('')
+  const [rescheduleSaving, setRescheduleSaving]   = useState(false)
 
   useEffect(() => {
     return onSnapshot(collection(db, 'leagues', leagueId, 'fixtures'), snap => {
@@ -897,6 +900,20 @@ function FixturesSection({ leagueId, league, teams }) {
   }
 
   const totalPreviewMatches = preview ? preview.reduce((s, s2) => s + s2.matches.length, 0) : 0
+
+  const openReschedule = (f) => {
+    setRescheduleFixture(f)
+    setRescheduleDate(f.date || '')
+  }
+
+  const handleReschedule = async () => {
+    if (!rescheduleDate || !rescheduleFixture) return
+    setRescheduleSaving(true)
+    try {
+      await updateDoc(doc(db, 'leagues', leagueId, 'fixtures', rescheduleFixture.id), { date: rescheduleDate })
+      setRescheduleFixture(null)
+    } finally { setRescheduleSaving(false) }
+  }
 
   // Group existing fixtures by date
   const existingByDate = {}
@@ -999,9 +1016,45 @@ function FixturesSection({ leagueId, league, teams }) {
             {collapsed ? '▼ Show Fixtures' : '▲ Hide Fixtures'}
           </button>
           {!collapsed && existingDates.map(date => (
-            <ExistingDateGroup key={date} date={date} fixtures={existingByDate[date]} events={events} />
+            <ExistingDateGroup key={date} date={date} fixtures={existingByDate[date]} events={events} onReschedule={openReschedule} />
           ))}
         </>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleFixture && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={e => { if (e.target === e.currentTarget) setRescheduleFixture(null) }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: '24px 20px 36px', width: '100%', maxWidth: 480, boxShadow: '0 -4px 24px rgba(0,0,0,0.15)' }}>
+            {/* Handle */}
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
+
+            <p style={{ fontWeight: 800, fontSize: '1rem', marginBottom: 4 }}>Reschedule Match</p>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-2)', marginBottom: 16 }}>
+              {rescheduleFixture.homeTeam?.name} vs {rescheduleFixture.awayTeam?.name}
+              <span style={{ marginLeft: 8, fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)' }}>
+                {rescheduleFixture.event} · Leg {rescheduleFixture.leg}
+              </span>
+            </p>
+
+            <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>New Date</p>
+            <input
+              type="date"
+              value={rescheduleDate}
+              onChange={e => setRescheduleDate(e.target.value)}
+              style={{ width: '100%', height: 46, borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', padding: '0 14px', fontSize: '0.95rem', fontFamily: 'inherit', color: 'var(--text-1)', outline: 'none', boxSizing: 'border-box', marginBottom: 20 }}
+            />
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-secondary" onClick={() => setRescheduleFixture(null)} style={{ flex: 1, height: 46 }}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleReschedule}
+                disabled={rescheduleSaving || !rescheduleDate || rescheduleDate === rescheduleFixture.date}
+                style={{ flex: 2, height: 46 }}>
+                {rescheduleSaving ? <><Spinner /> Saving…</> : 'Confirm Reschedule'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -1048,7 +1101,7 @@ function PreviewSunday({ sunday }) {
 }
 
 /* ── Existing fixtures date group ── */
-function ExistingDateGroup({ date, fixtures, events }) {
+function ExistingDateGroup({ date, fixtures, events, onReschedule }) {
   return (
     <div className="card" style={{ marginBottom: 8, padding: 0, overflow: 'hidden' }}>
       <div style={{ padding: '10px 14px 8px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1066,6 +1119,12 @@ function ExistingDateGroup({ date, fixtures, events }) {
             <TeamPill team={f.awayTeam} align="left" />
           </div>
           <StatusChip status={f.status} />
+          {f.status === 'scheduled' && (
+            <button onClick={() => onReschedule(f)} title="Reschedule"
+              style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-elevated)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="13" height="13" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </button>
+          )}
         </div>
       ))}
     </div>
