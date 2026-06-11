@@ -854,8 +854,10 @@ function FixturesSection({ leagueId, league, teams }) {
   const events = league.events || []
 
   const handleGenerate = () => {
-    if (existing.length > 0) { setConfirmRegen(true); return }
-    doGenerate()
+    // If fixtures already saved, block entirely
+    if (existing.length > 0) return
+    // Show confirm before first-time generation
+    setConfirmRegen(true)
   }
 
   const doGenerate = () => {
@@ -918,11 +920,26 @@ function FixturesSection({ leagueId, league, teams }) {
             {existing.length > 0 ? `${existing.length} Match${existing.length !== 1 ? 'es' : ''} Scheduled` : 'No fixtures yet'}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={handleGenerate} disabled={teams.length < 2}
-          style={{ height: 38, padding: '0 14px', fontSize: '0.8rem', gap: 6 }}>
-          <ShuffleIcon /> {existing.length > 0 ? 'Regenerate' : 'Generate Fixtures'}
-        </button>
+        {existing.length === 0 && !preview && (
+          <button className="btn btn-primary" onClick={handleGenerate} disabled={teams.length < 2}
+            style={{ height: 38, padding: '0 14px', fontSize: '0.8rem', gap: 6 }}>
+            <ShuffleIcon /> Generate Fixtures
+          </button>
+        )}
+        {existing.length > 0 && (
+          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-3)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px' }}>
+            🔒 Locked
+          </span>
+        )}
       </div>
+
+      {existing.length > 0 && (
+        <div style={{ background: 'rgba(107,114,128,0.06)', border: '1px solid rgba(107,114,128,0.15)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-2)', fontWeight: 600 }}>
+            🔒 Fixtures are locked. To make changes, delete this tournament and create a new one.
+          </p>
+        </div>
+      )}
 
       {teams.length < 2 && (
         <div style={{ background: 'rgba(255,85,0,0.06)', border: '1px solid rgba(255,85,0,0.15)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
@@ -930,16 +947,21 @@ function FixturesSection({ leagueId, league, teams }) {
         </div>
       )}
 
-      {/* Confirm regenerate warning */}
+      {/* Confirm generate */}
       {confirmRegen && (
-        <div style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 12, padding: 14, marginBottom: 12 }}>
-          <p style={{ fontWeight: 700, fontSize: '0.88rem', color: '#dc2626', marginBottom: 4 }}>Regenerate Fixtures?</p>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-2)', marginBottom: 12 }}>
-            This will delete all {existing.length} existing fixtures and create new ones. Match results will be lost.
+        <div style={{ background: 'rgba(255,85,0,0.05)', border: '1px solid rgba(255,85,0,0.2)', borderRadius: 12, padding: 14, marginBottom: 12 }}>
+          <p style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--accent)', marginBottom: 4 }}>Generate Fixtures?</p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-2)', marginBottom: 4 }}>
+            This will generate {teams.length} team{teams.length !== 1 ? 's' : ''} · {(league.events || []).join(' & ')} fixtures starting {league.startDate || 'from start date'}.
+          </p>
+          <p style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 600, marginBottom: 12 }}>
+            ⚠️ Once saved, fixtures cannot be regenerated. You can only delete and recreate the tournament.
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-secondary" onClick={() => setConfirmRegen(false)} style={{ flex: 1, height: 38 }}>Cancel</button>
-            <button onClick={doGenerate} style={{ flex: 2, height: 38, borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.85rem', background: '#dc2626', color: '#fff' }}>Yes, Regenerate</button>
+            <button onClick={doGenerate} style={{ flex: 2, height: 38, borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.85rem', background: 'var(--accent)', color: '#fff' }}>
+              Yes, Generate
+            </button>
           </div>
         </div>
       )}
