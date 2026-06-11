@@ -450,6 +450,21 @@ export default function Scoring() {
         </div>
       )}
 
+      {/* Undo Start — admin only, only when no points scored yet */}
+      {isAdmin && isLive && sets.length === 1 && curSet.home === 0 && curSet.away === 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <button
+            onClick={async () => {
+              if (!window.confirm('Undo match start? This will reset the match back to scheduled.')) return
+              await save({ status: 'scheduled', sets: null, currentSet: null, lineup: null, liveUrl: null, homeScore: null, awayScore: null })
+            }}
+            disabled={busy}
+            style={{ width: '100%', height: 42, borderRadius: 10, border: '1.5px solid rgba(220,38,38,0.3)', background: 'rgba(220,38,38,0.06)', color: '#dc2626', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit' }}>
+            ↩ Undo Start Match
+          </button>
+        </div>
+      )}
+
       {/* Watch Live button — shown when liveUrl is set */}
       {fixture.liveUrl && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>

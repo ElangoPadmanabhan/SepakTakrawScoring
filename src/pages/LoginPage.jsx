@@ -66,7 +66,7 @@ export default function LoginPage() {
         <h1 style={{ fontSize: '1.3rem', fontWeight: 900, letterSpacing: '-0.5px', color: 'var(--text-1)', lineHeight: 1.2 }}>
           Chennai Sepak<br />Takraw League
         </h1>
-        <p style={{ color: 'var(--text-2)', fontSize: '0.82rem', marginTop: 6 }}>Season 2025</p>
+        <p style={{ color: 'var(--text-2)', fontSize: '0.82rem', marginTop: 6 }}>Season 2026</p>
       </div>
 
       {/* Card */}
@@ -199,7 +199,7 @@ export default function LoginPage() {
       </div>
 
       <p style={{ color: 'var(--text-3)', fontSize: '0.75rem', marginTop: 20, textAlign: 'center' }}>
-        Chennai Sepak Takraw League © 2025
+        Chennai Sepak Takraw League © 2026
       </p>
     </div>
   )
