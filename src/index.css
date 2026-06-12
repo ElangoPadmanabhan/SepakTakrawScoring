@@ -37,6 +37,7 @@ html { height: 100%; background: var(--bg-base); }
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 600;
   background: var(--bg-base);
   color: var(--text-1);
   max-width: 480px;
