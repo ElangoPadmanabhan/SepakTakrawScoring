@@ -21,21 +21,21 @@ export default function Home() {
         {/* subtle circle accents */}
         <div style={{ position: 'absolute', top: -40, left: -40, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ position: 'absolute', bottom: -30, left: 50, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
-        {/* text */}
-        <div style={{ position: 'relative' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <img src={`${import.meta.env.BASE_URL}NewLogo.jpg`} alt="Chennai Sepak Takraw"
-              style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />
-            <p style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.8)' }}>
+        {/* text + logo row */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>
               Chennai Sepak Takraw
             </p>
+            <h1 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', lineHeight: 1.2, marginBottom: 10 }}>
+              {activeLeagues.length > 1 ? `${activeLeagues.length} Tournaments Live` : activeLeagues[0]?.name || 'League Dashboard'}
+            </h1>
+            <span style={{ display: 'inline-block', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '4px 12px', fontSize: '0.68rem', fontWeight: 700, color: '#fff' }}>
+              {isAdmin ? '⚡ Admin' : `👤 ${user?.displayName?.split(' ')[0] || 'User'}`}
+            </span>
           </div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', lineHeight: 1.2, marginBottom: 10 }}>
-            {activeLeagues.length > 1 ? `${activeLeagues.length} Tournaments Live` : activeLeagues[0]?.name || 'League Dashboard'}
-          </h1>
-          <span style={{ display: 'inline-block', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '4px 12px', fontSize: '0.68rem', fontWeight: 700, color: '#fff' }}>
-            {isAdmin ? '⚡ Admin' : `👤 ${user?.displayName?.split(' ')[0] || 'User'}`}
-          </span>
+          <img src="/NewLogo.jpg" alt="Chennai Sepak Takraw"
+            style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover', border: '2px solid rgba(255,255,255,0.35)', flexShrink: 0, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }} />
         </div>
       </div>
 
