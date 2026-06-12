@@ -1138,6 +1138,8 @@ function PreviewSunday({ sunday }) {
 
 /* ── Existing fixtures date group ── */
 function ExistingDateGroup({ date, fixtures, events, onReschedule, pow, onSetPow }) {
+  const allCompleted = fixtures.length > 0 && fixtures.every(f => f.status === 'completed')
+
   return (
     <div className="card" style={{ marginBottom: 8, padding: 0, overflow: 'hidden' }}>
       {/* Date header */}
@@ -1145,14 +1147,18 @@ function ExistingDateGroup({ date, fixtures, events, onReschedule, pow, onSetPow
         <svg width="13" height="13" fill="none" stroke="var(--text-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <p style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-2)', flex: 1 }}>{formatDate(date)}</p>
         <button
-          onClick={onSetPow}
+          onClick={allCompleted ? onSetPow : undefined}
+          disabled={!allCompleted}
+          title={!allCompleted ? 'All matches must be completed before setting POW' : undefined}
           style={{
             display: 'flex', alignItems: 'center', gap: 4,
-            padding: '3px 10px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit',
-            fontSize: '0.62rem', fontWeight: 700,
-            background: pow ? 'rgba(230,149,0,0.15)' : 'rgba(230,149,0,0.08)',
-            border: pow ? '1px solid rgba(230,149,0,0.45)' : '1px solid rgba(230,149,0,0.25)',
-            color: '#b45309',
+            padding: '3px 10px', borderRadius: 20,
+            cursor: allCompleted ? 'pointer' : 'not-allowed',
+            fontFamily: 'inherit', fontSize: '0.62rem', fontWeight: 700,
+            background: !allCompleted ? 'var(--bg-elevated)' : pow ? 'rgba(230,149,0,0.15)' : 'rgba(230,149,0,0.08)',
+            border: !allCompleted ? '1px solid var(--border)' : pow ? '1px solid rgba(230,149,0,0.45)' : '1px solid rgba(230,149,0,0.25)',
+            color: !allCompleted ? 'var(--text-3)' : '#b45309',
+            opacity: !allCompleted ? 0.5 : 1,
           }}>
           🏆 {pow ? pow.playerName.split(' ')[0] : 'Set POW'}
         </button>
