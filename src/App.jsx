@@ -54,10 +54,9 @@ export default function App() {
           transform: 'translate(-50%, -50%)',
           width: '75vw',
           maxWidth: 420,
-          opacity: 0.18,
-          mixBlendMode: 'multiply',
+          opacity: 0.07,
           pointerEvents: 'none',
-          zIndex: 0,
+          zIndex: -1,
           userSelect: 'none',
         }}
         onError={e => { e.currentTarget.style.display = 'none' }}
