@@ -9,7 +9,7 @@ const ROLE_STYLES = {
 }
 const POSITION_STYLES = {
   Feeder:  { bg: 'rgba(34,197,94,0.08)',  color: '#16a34a', border: 'rgba(34,197,94,0.2)'  },
-  Striker: { bg: 'rgba(239,68,68,0.08)',  color: '#dc2626', border: 'rgba(239,68,68,0.2)'  },
+  Killer:  { bg: 'rgba(239,68,68,0.08)',  color: '#dc2626', border: 'rgba(239,68,68,0.2)'  },
   Tekong:  { bg: 'rgba(14,165,233,0.08)', color: '#0284c7', border: 'rgba(14,165,233,0.2)' },
 }
 
