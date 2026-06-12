@@ -34,7 +34,7 @@ export default function Home() {
               {isAdmin ? '⚡ Admin' : `👤 ${user?.displayName?.split(' ')[0] || 'User'}`}
             </span>
           </div>
-          <img src="/NewLogo.jpg" alt="Chennai Sepak Takraw"
+          <img src={`${import.meta.env.BASE_URL}NewLogo.jpg`} alt="Chennai Sepak Takraw"
             style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover', border: '2px solid rgba(255,255,255,0.35)', flexShrink: 0, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }} />
         </div>
       </div>
