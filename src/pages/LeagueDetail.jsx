@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   doc, getDoc, updateDoc, collection,
   addDoc, onSnapshot, deleteDoc, serverTimestamp,
-  getDocs, writeBatch,
+  getDocs, writeBatch, setDoc,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '../firebase'
@@ -861,12 +861,22 @@ function FixturesSection({ leagueId, league, teams }) {
   const [rescheduleFixture, setRescheduleFixture] = useState(null) // { id, homeTeam, awayTeam, event, leg, date }
   const [rescheduleDate, setRescheduleDate]       = useState('')
   const [rescheduleSaving, setRescheduleSaving]   = useState(false)
+  const [powByDate, setPowByDate]   = useState({})
+  const [powSheetDate, setPowSheetDate] = useState(null)
 
   useEffect(() => {
     return onSnapshot(collection(db, 'leagues', leagueId, 'fixtures'), snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       all.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
       setExisting(all)
+    })
+  }, [leagueId])
+
+  useEffect(() => {
+    return onSnapshot(collection(db, 'leagues', leagueId, 'pow'), snap => {
+      const map = {}
+      snap.docs.forEach(d => { map[d.id] = { date: d.id, ...d.data() } })
+      setPowByDate(map)
     })
   }, [leagueId])
 
@@ -1032,9 +1042,19 @@ function FixturesSection({ leagueId, league, teams }) {
             {collapsed ? '▼ Show Fixtures' : '▲ Hide Fixtures'}
           </button>
           {!collapsed && existingDates.map(date => (
-            <ExistingDateGroup key={date} date={date} fixtures={existingByDate[date]} events={events} onReschedule={openReschedule} />
+            <ExistingDateGroup key={date} date={date} fixtures={existingByDate[date]} events={events} onReschedule={openReschedule} pow={powByDate[date] || null} onSetPow={() => setPowSheetDate(date)} />
           ))}
         </>
+      )}
+
+      {/* POW Sheet */}
+      {powSheetDate && (
+        <PowSheet
+          leagueId={leagueId}
+          date={powSheetDate}
+          existingPow={powByDate[powSheetDate] || null}
+          onClose={() => setPowSheetDate(null)}
+        />
       )}
 
       {/* Reschedule Modal */}
@@ -1117,13 +1137,28 @@ function PreviewSunday({ sunday }) {
 }
 
 /* ── Existing fixtures date group ── */
-function ExistingDateGroup({ date, fixtures, events, onReschedule }) {
+function ExistingDateGroup({ date, fixtures, events, onReschedule, pow, onSetPow }) {
   return (
     <div className="card" style={{ marginBottom: 8, padding: 0, overflow: 'hidden' }}>
+      {/* Date header */}
       <div style={{ padding: '10px 14px 8px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
         <svg width="13" height="13" fill="none" stroke="var(--text-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <p style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-2)' }}>{formatDate(date)}</p>
+        <p style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-2)', flex: 1 }}>{formatDate(date)}</p>
+        <button
+          onClick={onSetPow}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '3px 10px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit',
+            fontSize: '0.62rem', fontWeight: 700,
+            background: pow ? 'rgba(230,149,0,0.15)' : 'rgba(230,149,0,0.08)',
+            border: pow ? '1px solid rgba(230,149,0,0.45)' : '1px solid rgba(230,149,0,0.25)',
+            color: '#b45309',
+          }}>
+          🏆 {pow ? pow.playerName.split(' ')[0] : 'Set POW'}
+        </button>
       </div>
+
+      {/* Fixture rows */}
       {fixtures.map(f => (
         <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--border-light)' }}>
           <span style={{ padding: '1px 8px', borderRadius: 20, fontSize: '0.6rem', fontWeight: 700, background: 'rgba(255,85,0,0.08)', color: 'var(--accent)', border: '1px solid rgba(255,85,0,0.15)', flexShrink: 0 }}>
@@ -1143,6 +1178,24 @@ function ExistingDateGroup({ date, fixtures, events, onReschedule }) {
           )}
         </div>
       ))}
+
+      {/* POW strip — shown when a POW is set for this date */}
+      {pow && (
+        <div
+          onClick={onSetPow}
+          style={{ padding: '8px 14px', background: 'rgba(230,149,0,0.06)', borderTop: '1px dashed rgba(230,149,0,0.25)', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid rgba(230,149,0,0.35)', background: 'rgba(230,149,0,0.12)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {pow.photoUrl
+              ? <img src={pow.photoUrl} alt={pow.playerName} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#b45309' }}>{pow.playerName?.[0]?.toUpperCase()}</span>}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: '0.72rem', fontWeight: 800, color: '#92400e' }}>🏆 {pow.playerName}</p>
+            <p style={{ fontSize: '0.6rem', color: '#b45309', marginTop: 1 }}>{pow.teamName}{pow.position ? ` · ${pow.position}` : ''}</p>
+          </div>
+          <span style={{ fontSize: '0.6rem', color: '#b45309', fontWeight: 700, flexShrink: 0 }}>Edit →</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -1172,6 +1225,179 @@ function StatusChip({ status }) {
     </span>
   )
 }
+
+/* ══════════════════════════════════════════
+   POW SHEET
+══════════════════════════════════════════ */
+function PowSheet({ leagueId, date, existingPow, onClose }) {
+  const [teams,            setTeams]           = useState([])
+  const [players,          setPlayers]         = useState([])
+  const [selectedTeamId,   setSelectedTeamId]  = useState(existingPow?.teamId || '')
+  const [selectedPlayerId, setSelectedPlayerId]= useState(existingPow?.playerId || '')
+  const [note,             setNote]            = useState(existingPow?.note || '')
+  const [saving,           setSaving]          = useState(false)
+  const [visible,          setVisible]         = useState(false)
+
+  useEffect(() => { setTimeout(() => setVisible(true), 30) }, [])
+
+  useEffect(() => {
+    getDocs(collection(db, 'leagues', leagueId, 'teams')).then(snap => {
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name))
+      setTeams(all)
+      if (!existingPow && all.length > 0) setSelectedTeamId(all[0].id)
+    })
+  }, [leagueId])
+
+  useEffect(() => {
+    if (!selectedTeamId) return
+    setPlayers([])
+    getDocs(collection(db, 'leagues', leagueId, 'teams', selectedTeamId, 'players')).then(snap => {
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name))
+      setPlayers(all)
+      if (existingPow?.teamId === selectedTeamId) {
+        setSelectedPlayerId(existingPow.playerId)
+      } else {
+        setSelectedPlayerId(all[0]?.id || '')
+      }
+    })
+  }, [selectedTeamId])
+
+  const close = () => { setVisible(false); setTimeout(onClose, 300) }
+
+  const handleSave = async () => {
+    const team   = teams.find(t => t.id === selectedTeamId)
+    const player = players.find(p => p.id === selectedPlayerId)
+    if (!team || !player) return
+    setSaving(true)
+    try {
+      await setDoc(doc(db, 'leagues', leagueId, 'pow', date), {
+        date,
+        teamId:     team.id,
+        teamName:   team.name,
+        teamLogo:   team.logoUrl || null,
+        playerId:   player.id,
+        playerName: player.name,
+        position:   player.position || null,
+        photoUrl:   player.photoUrl || null,
+        note:       note.trim() || null,
+        updatedAt:  serverTimestamp(),
+      })
+      close()
+    } finally { setSaving(false) }
+  }
+
+  const handleClear = async () => {
+    if (!window.confirm('Remove Player of the Week for this date?')) return
+    await deleteDoc(doc(db, 'leagues', leagueId, 'pow', date))
+    close()
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div onClick={close} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 800, opacity: visible ? 1 : 0, transition: 'opacity 220ms ease' }} />
+
+      {/* Sheet */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: '50%',
+        transform: `translateX(-50%) translateY(${visible ? '0' : '100%'})`,
+        transition: 'transform 320ms cubic-bezier(0.32,0.72,0,1)',
+        width: '100%', maxWidth: 480,
+        background: 'var(--bg-card)', borderRadius: '24px 24px 0 0',
+        border: '1px solid var(--border)', borderBottom: 'none',
+        zIndex: 801, maxHeight: '88dvh',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }}>
+        {/* Handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 0', flexShrink: 0 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)' }} />
+        </div>
+
+        {/* Scrollable body */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '0 20px 16px' }}>
+          <p style={{ fontWeight: 900, fontSize: '1rem', marginBottom: 2, paddingTop: 12 }}>🏆 Player of the Week</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginBottom: 16 }}>{formatDate(date)}</p>
+
+          {/* Team picker */}
+          <p style={powLabelStyle}>Team</p>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, marginBottom: 16, scrollbarWidth: 'none' }}>
+            {teams.map(t => (
+              <div key={t.id} onClick={() => setSelectedTeamId(t.id)} style={{
+                flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8,
+                padding: '6px 12px 6px 8px', borderRadius: 10, cursor: 'pointer',
+                border: selectedTeamId === t.id ? '2px solid var(--accent)' : '2px solid var(--border)',
+                background: selectedTeamId === t.id ? 'rgba(255,85,0,0.05)' : 'var(--bg-elevated)',
+                transition: 'all 150ms ease',
+              }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, overflow: 'hidden', background: 'var(--bg-elevated)', border: '1px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {t.logoUrl
+                    ? <img src={t.logoUrl} alt={t.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ fontSize: '0.7rem' }}>👥</span>}
+                </div>
+                <p style={{ fontSize: '0.72rem', fontWeight: 800, color: selectedTeamId === t.id ? 'var(--accent)' : 'var(--text-1)', whiteSpace: 'nowrap' }}>{t.name}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Player list */}
+          <p style={powLabelStyle}>Player</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+            {players.length === 0 && (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-3)', textAlign: 'center', padding: '16px 0' }}>No players in this team</p>
+            )}
+            {players.map(p => (
+              <div key={p.id} onClick={() => setSelectedPlayerId(p.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '9px 10px', borderRadius: 10, cursor: 'pointer',
+                border: selectedPlayerId === p.id ? '1px solid var(--accent)' : '1px solid var(--border)',
+                background: selectedPlayerId === p.id ? 'rgba(255,85,0,0.04)' : 'var(--bg-elevated)',
+                transition: 'all 150ms ease',
+              }}>
+                <PlayerAvatar player={p} size={38} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-1)' }}>{p.name}</p>
+                  {p.position && <PositionBadge position={p.position} small />}
+                </div>
+                <div style={{ width: 20, height: 20, borderRadius: '50%', border: selectedPlayerId === p.id ? 'none' : '2px solid var(--border)', background: selectedPlayerId === p.id ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {selectedPlayerId === p.id && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Note */}
+          <p style={powLabelStyle}>Note (optional)</p>
+          <textarea
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="e.g. Outstanding serve accuracy this weekend…"
+            rows={2}
+            style={{ width: '100%', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-elevated)', fontSize: '0.85rem', color: 'var(--text-1)', padding: '10px 12px', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box', marginBottom: 12, outline: 'none' }}
+          />
+
+          {existingPow && (
+            <button onClick={handleClear} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', color: '#dc2626', fontWeight: 600, padding: '4px 0 8px', textAlign: 'center' }}>
+              Remove Player of the Week
+            </button>
+          )}
+        </div>
+
+        {/* Sticky action buttons */}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, flexShrink: 0, background: 'var(--bg-card)' }}>
+          <button onClick={close} style={{ flex: 1, height: 46, borderRadius: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border)', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-2)' }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saving || !selectedTeamId || !selectedPlayerId}
+            style={{ flex: 2, height: 46, borderRadius: 10, background: 'var(--accent)', border: 'none', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit', color: '#fff', opacity: (saving || !selectedTeamId || !selectedPlayerId) ? 0.6 : 1, boxShadow: '0 4px 14px rgba(255,85,0,0.3)' }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+const powLabelStyle = { display: 'block', fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }
 
 const ShuffleIcon = () => (
   <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
