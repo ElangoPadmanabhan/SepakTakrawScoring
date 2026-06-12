@@ -316,7 +316,23 @@ function TeamCard({ team, leagueId, leagueEvents }) {
     try {
       let logoUrl = team.logoUrl
       if (logoFile) logoUrl = await uploadImage(`teams/${leagueId}/${team.id}/logo`, logoFile)
-      await updateDoc(doc(db, 'leagues', leagueId, 'teams', team.id), { name: name.trim(), logoUrl })
+      const newName = name.trim()
+
+      // Update team doc
+      await updateDoc(doc(db, 'leagues', leagueId, 'teams', team.id), { name: newName, logoUrl })
+
+      // Propagate name + logo to all fixtures that reference this team
+      const fixturesSnap = await getDocs(collection(db, 'leagues', leagueId, 'fixtures'))
+      const batch = writeBatch(db)
+      fixturesSnap.docs.forEach(d => {
+        const f = d.data()
+        const updates = {}
+        if (f.homeTeam?.id === team.id) updates.homeTeam = { ...f.homeTeam, name: newName, logoUrl }
+        if (f.awayTeam?.id === team.id) updates.awayTeam = { ...f.awayTeam, name: newName, logoUrl }
+        if (Object.keys(updates).length > 0) batch.update(d.ref, updates)
+      })
+      await batch.commit()
+
       setEditMode(false)
     } finally { setSaving(false) }
   }
