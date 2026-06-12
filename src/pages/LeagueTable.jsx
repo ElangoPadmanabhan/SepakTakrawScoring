@@ -258,8 +258,8 @@ export default function LeagueTable() {
         <>
           {/* Column headers */}
           <div className="league-table-grid" style={{ padding: '0 10px 8px' }}>
-            {['#', 'Team', 'P', 'W', 'L', 'Sets', 'PD', 'Pts', ''].map((h, i) => (
-              <span key={i} title={['','','Played','Wins','Losses','Sets Won–Lost','Points Difference','League Points',''][i]}
+            {['#', 'Team', 'P', 'W', 'L', 'PD', 'Sets', 'Pts', ''].map((h, i) => (
+              <span key={i} title={['','','Played','Wins','Losses','Points Difference','Sets Won–Lost','League Points',''][i]}
                 style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: h === 'Pts' ? 'var(--accent)' : 'var(--text-3)', textAlign: i === 1 ? 'left' : 'center' }}>
                 {h}
               </span>
@@ -308,14 +308,14 @@ export default function LeagueTable() {
                     <span key={i} style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{v}</span>
                   ))}
 
-                  {/* Net Sets */}
-                  <span style={{ textAlign: 'center', fontSize: '0.88rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: netSets > 0 ? '#16a34a' : netSets < 0 ? '#dc2626' : 'var(--text-3)' }}>
-                    {setsStr}
-                  </span>
-
                   {/* Points Difference */}
                   <span style={{ textAlign: 'center', fontWeight: 800, fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums', color: pd > 0 ? '#16a34a' : pd < 0 ? '#dc2626' : 'var(--text-3)' }}>
                     {pdStr}
+                  </span>
+
+                  {/* Net Sets */}
+                  <span style={{ textAlign: 'center', fontSize: '0.88rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: netSets > 0 ? '#16a34a' : netSets < 0 ? '#dc2626' : 'var(--text-3)' }}>
+                    {setsStr}
                   </span>
 
                   {/* League Pts */}
@@ -326,7 +326,7 @@ export default function LeagueTable() {
                   {/* Heart + count */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                     {!isAdmin ? (
-                      <button onClick={() => supportTeam(team.id)} aria-label={isSupported ? `Unsupport ${team.name}` : `Support ${team.name}`}
+                      <button onClick={() => supportTeam(team.id)} aria-label={`Support ${team.name}`}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', transition: 'transform 150ms ease', padding: 0 }}
                         onMouseDown={e => e.currentTarget.style.transform = 'scale(0.85)'}
                         onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -359,6 +359,8 @@ export default function LeagueTable() {
           </div>
         </>
       )}
+
+
     </div>
   )
 }
