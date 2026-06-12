@@ -197,6 +197,7 @@ function LeagueCard({ league }) {
   const navigate = useNavigate()
   const [teams,    setTeams]    = useState([])
   const [fixtures, setFixtures] = useState([])
+  const [powList,  setPowList]  = useState([])
 
   useEffect(() => {
     const u1 = onSnapshot(collection(db, 'leagues', league.id, 'teams'),
@@ -204,7 +205,10 @@ function LeagueCard({ league }) {
     const u2 = onSnapshot(
       collection(db, 'leagues', league.id, 'fixtures'),
       snap => setFixtures(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-    return () => { u1(); u2() }
+    const u3 = onSnapshot(
+      collection(db, 'leagues', league.id, 'pow'),
+      snap => setPowList(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    return () => { u1(); u2(); u3() }
   }, [league.id])
 
   const today    = new Date().toISOString().split('T')[0]
@@ -296,7 +300,6 @@ function LeagueCard({ league }) {
       {topTeams.length > 0 && topTeams.map((team, idx) => {
         const s       = getStats(team)
         const setDiff = s.setsWon - s.setsLost
-        const pd      = s.ptsFor - s.ptsAgainst
         const medal   = idx === 0 ? '🥇' : '🥈'
         return (
           <div key={team.id} style={{
@@ -329,6 +332,120 @@ function LeagueCard({ league }) {
         )
       })}
 
+      {/* ── Player of the Week ── */}
+      <PowSection powList={powList} />
+
+    </div>
+  )
+}
+
+// ── Player of the Week section inside LeagueCard ──────────
+function PowSection({ powList }) {
+  if (powList.length === 0) {
+    return (
+      <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', background: 'rgba(245,158,11,0.03)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+          <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '1px' }}>Player of the Week</span>
+        </div>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>No awards yet this season.</p>
+      </div>
+    )
+  }
+
+  // Latest POW (highest date string)
+  const latest = [...powList].sort((a, b) => b.date.localeCompare(a.date))[0]
+
+  // Leaderboard — count per player
+  const counts = {}
+  powList.forEach(p => {
+    const key = p.playerId
+    if (!counts[key]) counts[key] = { playerId: p.playerId, playerName: p.playerName, teamName: p.teamName, photoUrl: p.photoUrl, count: 0 }
+    counts[key].count++
+  })
+  const leaderboard = Object.values(counts).sort((a, b) => b.count - a.count)
+
+  const formatDate = (d) => {
+    if (!d) return ''
+    const [y, m, day] = d.split('-')
+    return `${day}/${m}/${y}`
+  }
+
+  const initials = (name) => name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?'
+
+  return (
+    <div style={{ borderTop: '1px solid var(--border)', background: 'rgba(245,158,11,0.03)' }}>
+      {/* Section label */}
+      <div style={{ padding: '8px 14px 4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '1px' }}>
+          Player of the Week
+        </span>
+        {powList.length > 1 && (
+          <span style={{ fontSize: '0.6rem', color: 'var(--text-3)', fontWeight: 600 }}>
+            {powList.length} awards
+          </span>
+        )}
+      </div>
+
+      {/* Latest POW card */}
+      <div style={{ padding: '0 14px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        {latest.photoUrl
+          ? <img src={latest.photoUrl} alt={latest.playerName} referrerPolicy="no-referrer"
+              style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(245,158,11,0.4)', flexShrink: 0 }} />
+          : <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(245,158,11,0.15)', border: '2px solid rgba(245,158,11,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#b45309', flexShrink: 0 }}>
+              {initials(latest.playerName)}
+            </div>
+        }
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 800, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{latest.playerName}</span>
+            {latest.position && (
+              <span style={{ fontSize: '0.58rem', fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: 'rgba(245,158,11,0.12)', color: '#b45309', border: '1px solid rgba(245,158,11,0.25)', flexShrink: 0 }}>
+                {latest.position}
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {latest.teamName} · {formatDate(latest.date)}
+          </p>
+          {latest.note && (
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic' }}>
+              "{latest.note}"
+            </p>
+          )}
+        </div>
+        <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>🏆</span>
+      </div>
+
+      {/* Leaderboard horizontal scroll */}
+      {leaderboard.length > 0 && (
+        <div style={{ borderTop: '1px solid rgba(245,158,11,0.15)', padding: '8px 0 10px' }}>
+          <p style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '1px', padding: '0 14px', marginBottom: 6 }}>Most Wins</p>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 14px', scrollbarWidth: 'none' }}>
+            {leaderboard.map((p, idx) => (
+              <div key={p.playerId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0, minWidth: 58 }}>
+                <div style={{ position: 'relative' }}>
+                  {p.photoUrl
+                    ? <img src={p.photoUrl} alt={p.playerName} referrerPolicy="no-referrer"
+                        style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', border: idx === 0 ? '2px solid #f59e0b' : '2px solid var(--border)' }} />
+                    : <div style={{ width: 38, height: 38, borderRadius: '50%', background: idx === 0 ? 'rgba(245,158,11,0.15)' : 'var(--bg-elevated)', border: idx === 0 ? '2px solid #f59e0b' : '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 800, color: idx === 0 ? '#b45309' : 'var(--text-2)' }}>
+                        {initials(p.playerName)}
+                      </div>
+                  }
+                  <div style={{ position: 'absolute', bottom: -4, right: -4, background: idx === 0 ? '#f59e0b' : 'var(--bg-elevated)', border: '1.5px solid var(--bg-card)', borderRadius: 10, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.58rem', fontWeight: 800, color: idx === 0 ? '#fff' : 'var(--text-2)', padding: '0 3px' }}>
+                    ×{p.count}
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.62rem', fontWeight: 700, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 56, color: 'var(--text-1)' }}>
+                  {p.playerName.split(' ')[0]}
+                </p>
+                <p style={{ fontSize: '0.58rem', color: 'var(--text-3)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 56, marginTop: -2 }}>
+                  {p.teamName}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
