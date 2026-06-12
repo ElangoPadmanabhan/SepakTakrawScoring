@@ -23,9 +23,13 @@ export default function Home() {
         <div style={{ position: 'absolute', bottom: -30, left: 50, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
         {/* text */}
         <div style={{ position: 'relative' }}>
-          <p style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>
-            Chennai Sepak Takraw
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <img src={`${import.meta.env.BASE_URL}NewLogo.jpg`} alt="Chennai Sepak Takraw"
+              style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />
+            <p style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.8)' }}>
+              Chennai Sepak Takraw
+            </p>
+          </div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', lineHeight: 1.2, marginBottom: 10 }}>
             {activeLeagues.length > 1 ? `${activeLeagues.length} Tournaments Live` : activeLeagues[0]?.name || 'League Dashboard'}
           </h1>
