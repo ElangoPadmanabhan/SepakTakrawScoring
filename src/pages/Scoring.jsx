@@ -61,6 +61,7 @@ export default function Scoring() {
   const [awayPlayers, setAwayPlayers] = useState([])
   const [loading, setLoading]         = useState(!!fixtureId)
   const [busy, setBusy]               = useState(false)
+  const [confirmPending, setConfirmPending] = useState(null) // { side, winnerName, score }
   const completingRef = useRef(false)   // prevents double-tap from running stats twice
   const [timeoutState, setTimeoutState] = useState(null)
   const [liveUrl, setLiveUrl]         = useState('')
@@ -125,7 +126,20 @@ export default function Scoring() {
   }
 
   // ── Score actions ─────────────────────────────────────
-  const addPoint = async (side) => {
+  const addPoint = (side) => {
+    const curSet = fixture.sets[fixture.currentSet] || emptySet()
+    const newH = side === 'home' ? (curSet.home || 0) + 1 : (curSet.home || 0)
+    const newA = side === 'away' ? (curSet.away || 0) + 1 : (curSet.away || 0)
+    const wouldWin = checkSetWinner(newH, newA)
+    if (wouldWin) {
+      const winnerName = wouldWin === 'home' ? fixture.homeTeam?.name : fixture.awayTeam?.name
+      setConfirmPending({ side, winnerName, score: `${newH} – ${newA}` })
+      return
+    }
+    doAddPoint(side)
+  }
+
+  const doAddPoint = async (side) => {
     const sets = fixture.sets.map((s, i) => {
       if (i !== fixture.currentSet) return s
       const updated = { ...s, [side]: (s[side] || 0) + 1 }
@@ -612,6 +626,35 @@ export default function Scoring() {
         <LineupDisplay lineup={fixture.lineup} homeTeam={fixture.homeTeam} awayTeam={fixture.awayTeam} />
       )}
 
+
+      {/* ── Set complete confirmation ── */}
+      {confirmPending && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px' }}
+          onClick={() => setConfirmPending(null)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '24px 20px', width: '100%', maxWidth: 340, boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}
+            onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: '1.8rem', textAlign: 'center', marginBottom: 10 }}>🏆</p>
+            <p style={{ fontWeight: 900, fontSize: '1rem', textAlign: 'center', marginBottom: 6 }}>Set Complete?</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-2)', textAlign: 'center', marginBottom: 4 }}>
+              <strong>{confirmPending.winnerName}</strong> wins this set
+            </p>
+            <p style={{ fontSize: '1.1rem', fontWeight: 900, textAlign: 'center', color: 'var(--accent)', marginBottom: 20, fontVariantNumeric: 'tabular-nums' }}>
+              {confirmPending.score}
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirmPending(null)}
+                style={{ flex: 1, height: 46, borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-elevated)', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-2)' }}>
+                Cancel
+              </button>
+              <button onClick={() => { const s = confirmPending.side; setConfirmPending(null); doAddPoint(s) }}
+                disabled={busy}
+                style={{ flex: 1, height: 46, borderRadius: 12, border: 'none', background: 'var(--accent)', fontFamily: 'inherit', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', color: '#fff' }}>
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Sub / Re-entry modal ── */}
       {subModal && (
