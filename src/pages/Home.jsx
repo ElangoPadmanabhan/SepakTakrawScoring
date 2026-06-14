@@ -325,12 +325,13 @@ function LeagueCard({ league }) {
               : <div style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0 }}>👥</div>
             }
             <span style={{ flex: 1, fontWeight: 700, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.name}</span>
-            <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
               {[
-                { l: 'Pts',  v: s.pts,                                   c: 'var(--accent)'                    },
+                { l: 'P',    v: s.p,                                     c: 'var(--text-2)'                    },
                 { l: 'W',    v: s.w,                                     c: 'var(--text-1)'                    },
                 { l: 'L',    v: s.l,                                     c: 'var(--text-2)'                    },
                 { l: 'Sets', v: `${setDiff >= 0 ? '+' : ''}${setDiff}`, c: setDiff >= 0 ? '#16a34a' : '#dc2626' },
+                { l: 'Pts',  v: s.pts,                                   c: 'var(--accent)'                    },
               ].map(({ l, v, c }) => (
                 <div key={l} style={{ textAlign: 'center' }}>
                   <p style={{ fontSize: '0.55rem', color: 'var(--text-3)', fontWeight: 600 }}>{l}</p>
