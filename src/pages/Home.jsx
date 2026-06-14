@@ -219,17 +219,23 @@ function LeagueCard({ league }) {
   const live     = fixtures.filter(f => f.status === 'live')
   const todayFix = fixtures.filter(f => f.date === today && f.status === 'scheduled')
   const played   = fixtures.filter(f => f.status === 'completed')
-  const events   = league.events || []
-  const [activeEvent, setActiveEvent] = useState(() => events[0] || null)
+  const events = league.events || []
 
   const getStats = (team) => {
-    const s = activeEvent ? (team.eventStats?.[activeEvent] || {}) : {}
-    return {
-      w: s.w || 0, l: s.l || 0, p: s.p || 0,
-      setsWon: s.setsWon || 0, setsLost: s.setsLost || 0,
-      ptsFor: s.ptsFor || 0, ptsAgainst: s.ptsAgainst || 0,
-      pts: s.pts || 0,
-    }
+    const evList = events.length > 0 ? events : Object.keys(team.eventStats || {})
+    return evList.reduce((acc, ev) => {
+      const s = team.eventStats?.[ev] || {}
+      return {
+        w:          acc.w          + (s.w          || 0),
+        l:          acc.l          + (s.l          || 0),
+        p:          acc.p          + (s.p          || 0),
+        setsWon:    acc.setsWon    + (s.setsWon    || 0),
+        setsLost:   acc.setsLost   + (s.setsLost   || 0),
+        ptsFor:     acc.ptsFor     + (s.ptsFor     || 0),
+        ptsAgainst: acc.ptsAgainst + (s.ptsAgainst || 0),
+        pts:        acc.pts        + (s.pts        || 0),
+      }
+    }, { w: 0, l: 0, p: 0, setsWon: 0, setsLost: 0, ptsFor: 0, ptsAgainst: 0, pts: 0 })
   }
 
   const topTeams = [...teams].sort((a, b) => {
@@ -281,17 +287,17 @@ function LeagueCard({ league }) {
         </div>
       </div>
 
-      {/* ── Event tabs (only if league has multiple events) ── */}
-      {events.length > 1 && (
+      {/* ── Removed event tabs — Home always shows Overall ── */}
+      {false && (
         <div style={{ display: 'flex', gap: 6, padding: '8px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-elevated)' }}>
           {events.map(ev => (
-            <button key={ev} onClick={() => setActiveEvent(ev)}
+            <button key={ev}
               style={{
                 height: 28, padding: '0 12px', borderRadius: 20, fontFamily: 'inherit',
                 fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer',
-                border: activeEvent === ev ? '1.5px solid var(--accent)' : '1.5px solid var(--border)',
-                background: activeEvent === ev ? 'rgba(255,85,0,0.08)' : 'var(--bg-card)',
-                color: activeEvent === ev ? 'var(--accent)' : 'var(--text-2)',
+                border: '1.5px solid var(--border)',
+                background: 'var(--bg-card)',
+                color: 'var(--text-2)',
                 transition: 'all 150ms ease',
               }}>
               {EVENT_ICON[ev]} {ev}
