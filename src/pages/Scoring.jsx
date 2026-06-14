@@ -227,7 +227,9 @@ export default function Scoring() {
   const nextSet = async () => {
     if (fixture.currentSet >= MAX_SETS - 1) return
     const sets = [...fixture.sets, emptySet()]
-    await save({ sets, currentSet: fixture.currentSet + 1 })
+    const updates = { sets, currentSet: fixture.currentSet + 1 }
+    if (fixture.lineup) updates.lineup = fixture.lineup
+    await save(updates)
   }
 
   const buildLineup = (allPlayers, startingIds) =>
