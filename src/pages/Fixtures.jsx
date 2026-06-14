@@ -29,6 +29,7 @@ export default function Fixtures() {
   const [rescheduleFixture, setRescheduleFixture] = useState(null)
   const [rescheduleDate, setRescheduleDate]       = useState('')
   const [rescheduleSaving, setRescheduleSaving]   = useState(false)
+  const [powByDate, setPowByDate]                 = useState({})
 
   // Sync selectedLeague when leagues arrive or change
   useEffect(() => {
@@ -273,11 +274,12 @@ function TabBtn({ active, onClick, badge, children }) {
 function ResultsTable({ fixtures, supportedTeam, leagueId }) {
   const navigate = useNavigate()
 
-  // Group by date descending (most recent first)
+  // Group by completed date (or scheduled date) descending
   const byDate = {}
   fixtures.forEach(f => {
-    if (!byDate[f.date]) byDate[f.date] = []
-    byDate[f.date].push(f)
+    const key = f.completedDate || f.date
+    if (!byDate[key]) byDate[key] = []
+    byDate[key].push(f)
   })
   const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a))
 

@@ -155,9 +155,10 @@ export default function Scoring() {
     // second rapid tap before onSnapshot updates fixture.status is also blocked.
     if (matchOver && fixture.status !== 'completed' && !completingRef.current) {
       completingRef.current = true
-      updates.status    = 'completed'
-      updates.homeScore = sH
-      updates.awayScore = sA
+      updates.status        = 'completed'
+      updates.homeScore     = sH
+      updates.awayScore     = sA
+      updates.completedDate = new Date().toISOString().split('T')[0]
 
       // Total points scored across all sets
       const totalHome = sets.reduce((sum, s) => sum + (s.home || 0), 0)
