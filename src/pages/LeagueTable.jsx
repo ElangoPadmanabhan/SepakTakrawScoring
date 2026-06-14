@@ -39,7 +39,7 @@ export default function LeagueTable() {
   useEffect(() => {
     if (!selectedLeague) return
     const events = selectedLeague.events || []
-    setActiveEvent(events[0] || null)
+    setActiveEvent(events.length > 1 ? 'Overview' : events[0] || null)
   }, [selectedLeague?.id])
 
   // Load teams for selected league
@@ -75,8 +75,24 @@ export default function LeagueTable() {
   const events = selectedLeague?.events || []
   const showEventTabs = events.length > 1
 
-  // Read event-specific stats for a team
+  // Read event-specific stats for a team (Overview combines all events)
   const getStats = (team) => {
+    if (activeEvent === 'Overview') {
+      const evList = selectedLeague?.events || []
+      return evList.reduce((acc, ev) => {
+        const s = team.eventStats?.[ev] || {}
+        return {
+          p:          acc.p          + (s.p          || 0),
+          w:          acc.w          + (s.w          || 0),
+          l:          acc.l          + (s.l          || 0),
+          pts:        acc.pts        + (s.pts        || 0),
+          setsWon:    acc.setsWon    + (s.setsWon    || 0),
+          setsLost:   acc.setsLost   + (s.setsLost   || 0),
+          ptsFor:     acc.ptsFor     + (s.ptsFor     || 0),
+          ptsAgainst: acc.ptsAgainst + (s.ptsAgainst || 0),
+        }
+      }, { p: 0, w: 0, l: 0, pts: 0, setsWon: 0, setsLost: 0, ptsFor: 0, ptsAgainst: 0 })
+    }
     const s = activeEvent ? (team.eventStats?.[activeEvent] || {}) : {}
     return {
       p:          s.p          || 0,
@@ -101,7 +117,9 @@ export default function LeagueTable() {
 
   // Determine if all matches for each event are done → reveal winner
   const isEventComplete = (event) => {
-    const eventFixtures = fixtures.filter(f => !event || f.event === event)
+    const eventFixtures = event === 'Overview'
+      ? fixtures
+      : fixtures.filter(f => !event || f.event === event)
     return eventFixtures.length > 0 && eventFixtures.every(f => f.status === 'completed')
   }
   const currentEventComplete = isEventComplete(activeEvent)
@@ -209,12 +227,12 @@ export default function LeagueTable() {
       {/* Event tabs — only shown when league has both Regu & Quad */}
       {showEventTabs && (
         <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: 12, padding: 4, marginBottom: 16, gap: 4 }}>
-          {events.map(ev => {
+          {['Overview', ...events].map(ev => {
             const sel = activeEvent === ev
             return (
               <button key={ev} onClick={() => setActiveEvent(ev)}
-                style={{ flex: 1, height: 40, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.85rem', background: sel ? 'var(--bg-card)' : 'transparent', color: sel ? 'var(--accent)' : 'var(--text-2)', boxShadow: sel ? '0 1px 4px rgba(0,0,0,0.08)' : 'none', transition: 'all 150ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-                {EVENT_ICON[ev]} {ev} Table
+                style={{ flex: 1, height: 40, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.78rem', background: sel ? 'var(--bg-card)' : 'transparent', color: sel ? 'var(--accent)' : 'var(--text-2)', boxShadow: sel ? '0 1px 4px rgba(0,0,0,0.08)' : 'none', transition: 'all 150ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                {ev === 'Overview' ? '📊' : EVENT_ICON[ev]} {ev === 'Overview' ? 'Overall' : ev}
               </button>
             )
           })}
